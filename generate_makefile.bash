@@ -47,7 +47,7 @@ do
       KOKKOS_DEVICES="${KOKKOS_DEVICES},Serial"
       ;;
     --with-sycl)
-      KOKKOS_DEVICES="${KOKKOS_DEVICES},SyCL"
+      KOKKOS_DEVICES="${KOKKOS_DEVICES},SYCL"
       ;;
     --with-qthreads*)
       KOKKOS_DEVICES="${KOKKOS_DEVICES},Qthreads"

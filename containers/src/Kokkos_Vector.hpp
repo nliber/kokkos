@@ -74,15 +74,19 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
 
  public:
 #ifdef KOKKOS_ENABLE_CUDA_UVM
-  KOKKOS_INLINE_FUNCTION reference operator()(int i) const {
+  KOKKOS_INLINE_FUNCTION reference operator()(int i) { return DV::h_view(i); };
+  KOKKOS_INLINE_FUNCTION const_reference operator()(int i) const {
     return DV::h_view(i);
   };
-  KOKKOS_INLINE_FUNCTION reference operator[](int i) const {
+  KOKKOS_INLINE_FUNCTION reference operator[](int i) { return DV::h_view(i); };
+  KOKKOS_INLINE_FUNCTION const_reference operator[](int i) const {
     return DV::h_view(i);
   };
 #else
-  inline reference operator()(int i) const { return DV::h_view(i); };
-  inline reference operator[](int i) const { return DV::h_view(i); };
+  inline reference operator()(int i) { return DV::h_view(i); };
+  inline const_reference operator()(int i) const { return DV::h_view(i); };
+  inline reference operator[](int i) { return DV::h_view(i); };
+  inline const_reference operator[](int i) const { return DV::h_view(i); };
 #endif
 
   /* Member functions which behave like std::vector functions */
@@ -221,18 +225,19 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
   size_type span() const { return DV::span(); }
   bool empty() const { return _size == 0; }
 
+  pointer data() { return DV::h_view.data(); }
   const_pointer data() const { return DV::h_view.data(); }
 
-  iterator begin() const { return DV::h_view.data(); }
+  iterator begin() { return DV::h_view.data(); }
+  const_iterator begin() const { return DV::h_view.data(); }
 
-  iterator end() const { return DV::h_view.data() + _size; }
+  iterator end() { return DV::h_view.data() + _size; }
+  const_iterator end() const { return DV::h_view.data() + _size; }
 
   reference front() { return DV::h_view(0); }
-
-  reference back() { return DV::h_view(_size - 1); }
-
   const_reference front() const { return DV::h_view(0); }
 
+  reference back() { return DV::h_view(_size - 1); }
   const_reference back() const { return DV::h_view(_size - 1); }
 
   /* std::algorithms which work originally with iterators, here they are

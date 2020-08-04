@@ -2812,12 +2812,34 @@ namespace Impl {
  *  called from the shared memory tracking destruction.
  *  Secondarily to have two fewer partial specializations.
  */
+
+// NLIBER Dummy string for name to see if that makes it
+// trivially copyable
+
 template <class ExecSpace, class ValueType,
           bool IsScalar = std::is_scalar<ValueType>::value>
 struct ViewValueFunctor;
 
 template <class ExecSpace, class ValueType>
 struct ViewValueFunctor<ExecSpace, ValueType, false /* is_scalar */> {
+ private:
+  // Simple trivially copyable string
+  struct SimpleString {
+    explicit SimpleString(const std::string& s)
+        : length(std::min(s.size(), sizeof(data))), data() {
+      memcpy(data, s.data(), length);
+    }
+
+    friend std::string operator+(const char* lhs, const SimpleString& rhs) {
+      return lhs + std::string(rhs.data, rhs.length);
+    }
+
+   private:
+    size_t length;
+    char data[16];
+  };
+
+ public:
   using PolicyType = Kokkos::RangePolicy<ExecSpace, Kokkos::IndexType<int64_t>>;
   using Exec       = typename ExecSpace::execution_space;
 
@@ -2825,7 +2847,7 @@ struct ViewValueFunctor<ExecSpace, ValueType, false /* is_scalar */> {
   ValueType* ptr;
   size_t n;
   bool destroy;
-  std::string name;
+  SimpleString name;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const size_t i) const {
@@ -2885,12 +2907,30 @@ struct ViewValueFunctor<ExecSpace, ValueType, false /* is_scalar */> {
 
 template <class ExecSpace, class ValueType>
 struct ViewValueFunctor<ExecSpace, ValueType, true /* is_scalar */> {
+ private:
+  // Simple trivially copyable string
+  struct SimpleString {
+    explicit SimpleString(const std::string& s)
+        : length(std::min(s.size(), sizeof(data))), data() {
+      memcpy(data, s.data(), length);
+    }
+
+    friend std::string operator+(const char* lhs, const SimpleString& rhs) {
+      return lhs + std::string(rhs.data, rhs.length);
+    }
+
+   private:
+    size_t length;
+    char data[16];
+  };
+
+ public:
   using PolicyType = Kokkos::RangePolicy<ExecSpace, Kokkos::IndexType<int64_t>>;
 
   ExecSpace space;
   ValueType* ptr;
   size_t n;
-  std::string name;
+  SimpleString name;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(const size_t i) const { ptr[i] = ValueType(); }

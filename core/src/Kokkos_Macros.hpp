@@ -299,8 +299,9 @@
 #endif  // #if defined( KOKKOS_ENABLE_HIP )
 
 #if defined(KOKKOS_ENABLE_SYCL)
-#define KOKKOS_IMPL_FORCEINLINE_FUNCTION inline
+#define KOKKOS_IMPL_FORCEINLINE_FUNCTION inline __attribute__((always_inline))
 #define KOKKOS_IMPL_INLINE_FUNCTION inline
+#define KOKKOS_DEFAULTED_FUNCTION inline
 #define KOKKOS_IMPL_FUNCTION
 #define KOKKOS_LAMBDA [=]
 #if defined(KOKKOS_ENABLE_CXX17) || defined(KOKKOS_ENABLE_CXX20)

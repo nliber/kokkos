@@ -2835,8 +2835,10 @@ struct ViewValueFunctor<ExecSpace, ValueType, false /* is_scalar */> {
     }
 
    private:
-    size_t length;
-    char data[16];
+    unsigned char length;
+    char data[31];
+
+    static_assert(sizeof(data) <= std::numeric_limits<decltype(length)>::max());
   };
 
  public:
@@ -2920,8 +2922,10 @@ struct ViewValueFunctor<ExecSpace, ValueType, true /* is_scalar */> {
     }
 
    private:
-    size_t length;
-    char data[16];
+    unsigned char length;
+    char data[31];
+
+    static_assert(sizeof(data) <= std::numeric_limits<decltype(length)>::max());
   };
 
  public:

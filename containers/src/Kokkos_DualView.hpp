@@ -53,6 +53,8 @@
 #include <Kokkos_Core.hpp>
 #include <impl/Kokkos_Error.hpp>
 
+#include <SYCL/Kokkos_TypeChecks.hpp>
+
 namespace Kokkos {
 
 /* \class DualView
@@ -791,6 +793,9 @@ class DualView : public ViewTraits<DataType, Arg1Type, Arg2Type, Arg3Type> {
 
   //@}
 };
+#ifdef __SYCL_DEVICE_ONLY__
+isTriviallyCopyable(DualView<int>);
+#endif  // __SYCL_DEVICE_ONLY__
 
 }  // namespace Kokkos
 

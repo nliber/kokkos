@@ -46,6 +46,8 @@
 
 #include <cstdint>
 #include <string>
+#include "SYCL/Kokkos_TypeChecks.hpp"
+
 
 namespace Kokkos {
 namespace Impl {
@@ -119,17 +121,31 @@ class SharedAllocationRecord<void, void> {
  public:
   virtual std::string get_label() const { return std::string("Unmanaged"); }
 
-  static int tracking_enabled() { return t_tracking_enabled; }
+  static int tracking_enabled() { 
+#ifndef __SYCL_DEVICE_ONLY__
+    return t_tracking_enabled; 
+#else 
+    return 0;
+#endif
+  }
 
   /**\brief A host process thread claims and disables the
    *        shared allocation tracking flag.
    */
-  static void tracking_disable() { t_tracking_enabled = 0; }
+  static void tracking_disable() { 
+#ifndef __SYCL_DEVICE_ONLY__
+    t_tracking_enabled = 0;
+#endif
+  };
 
   /**\brief A host process thread releases and enables the
    *        shared allocation tracking flag.
    */
-  static void tracking_enable() { t_tracking_enabled = 1; }
+  static void tracking_enable() {
+#ifndef __SYCL_DEVICE_ONLY__
+    t_tracking_enabled = 1;
+#endif
+  };
 
   virtual ~SharedAllocationRecord() {}
 
@@ -253,7 +269,7 @@ template <class MemorySpace>
 class SharedAllocationRecord<MemorySpace, void>
     : public SharedAllocationRecord<void, void> {};
 
-union SharedAllocationTracker {
+class SharedAllocationTracker {
  private:
   typedef SharedAllocationRecord<void, void> Record;
 
@@ -347,7 +363,7 @@ union SharedAllocationTracker {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION constexpr SharedAllocationTracker()
-      : m_record_bits(DO_NOT_DEREF_FLAG) {}
+      : m_record_bits(DO_NOT_DEREF_FLAG), m_record() {}
 
 #ifndef __SYCL_DEVICE_ONLY__
   // Copy:
@@ -413,8 +429,7 @@ union SharedAllocationTracker {
 #undef KOKKOS_IMPL_SHARED_ALLOCATION_TRACKER_DECREMENT
 };
 #ifdef __SYCL_DEVICE_ONLY__
-static_assert(std::is_trivially_copyable<SharedAllocationTracker>::value,
-              "SharedAllocationTracker not trivially copyable on SYCL device.");
+isTriviallyCopyable(SharedAllocationTracker);
 #endif  // __SYCL_DEVICE_ONLY__
 
 } /* namespace Impl */

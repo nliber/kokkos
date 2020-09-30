@@ -65,7 +65,10 @@ enum MemoryTraitsFlags {
   RandomAccess = 0x02,
   Atomic       = 0x04,
   Restrict     = 0x08,
-  Aligned      = 0x10
+  Aligned      = 0x10,
+
+  // UnmanagedTC (Unmanaged trivially copyable) requires Unmanaged, so both bits are set
+  UnmanagedTC  = 0x21,  // TODO Should this implementation replace Unmanaged?
 };
 
 template <unsigned T>
@@ -83,6 +86,9 @@ struct MemoryTraits {
     is_restrict = (unsigned(0) != (T & unsigned(Kokkos::Restrict)))
   };
   enum : bool { is_aligned = (unsigned(0) != (T & unsigned(Kokkos::Aligned))) };
+  enum : bool {
+    is_unmanagedtc = (unsigned(0) != (T & unsigned(Kokkos::UnmanagedTC)))
+  };
 };
 
 }  // namespace Kokkos

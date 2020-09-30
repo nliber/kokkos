@@ -336,6 +336,7 @@ struct ViewTraits {
 
   enum { is_hostspace = std::is_same<MemorySpace, HostSpace>::value };
   enum { is_managed = MemoryTraits::is_unmanaged == 0 };
+  enum { is_unmanagedtc = MemoryTraits::is_unmanagedtc == 1 };
   enum { is_random_access = MemoryTraits::is_random_access == 1 };
 
   //------------------------------------
@@ -565,6 +566,14 @@ namespace Kokkos {
 template <class DataType, class... Properties>
 class View;
 
+// TODO Move this into ViewTracker.hpp
+namespace Impl {
+struct UntrackedAllocationRecord {};
+struct UntrackedViewTracker {
+using track_type = UntrackedAllocationRecord;
+};
+}  // namespace Impl
+
 template <class>
 struct is_view : public std::false_type {};
 
@@ -582,7 +591,10 @@ class View : public ViewTraits<DataType, Properties...> {
   template <class, class...>
   friend class Kokkos::Impl::ViewMapping;
 
-  using view_tracker_type = Kokkos::Impl::ViewTracker<View>;
+  // using view_tracker_type = Kokkos::Impl::ViewTracker<View>;
+  using view_tracker_type = std::conditional_t<
+      ViewTraits<DataType, Properties...>::memory_traits::is_unmanagedtc,
+      Kokkos::Impl::UntrackedViewTracker, Kokkos::Impl::ViewTracker<View>>;
 
  public:
   using traits = ViewTraits<DataType, Properties...>;
@@ -590,7 +602,7 @@ class View : public ViewTraits<DataType, Properties...> {
  private:
   using map_type =
       Kokkos::Impl::ViewMapping<traits, typename traits::specialize>;
-  template <typename V>
+  template <typename Vm>
   friend struct Kokkos::Impl::ViewTracker;
 
   view_tracker_type m_track;

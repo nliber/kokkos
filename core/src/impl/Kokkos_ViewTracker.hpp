@@ -123,6 +123,32 @@ struct ViewTracker {
       : m_tracker(tt, view_traits::is_managed) {}
 };
 
+struct UntrackedAllocationTracker {
+  KOKKOS_INLINE_FUNCTION
+  void assign_force_disable() {}
+};
+
+struct UntrackedViewTracker {
+  using track_type  = UntrackedAllocationTracker;
+  using view_traits = void;
+
+  track_type m_tracker;
+
+  KOKKOS_DEFAULTED_FUNCTION
+  UntrackedViewTracker() = default;
+
+  template <class RT, class... RP>
+  KOKKOS_INLINE_FUNCTION explicit UntrackedViewTracker(
+      const View<RT, RP...>& vt) noexcept
+      : m_tracker() {
+    assign(vt);
+  }
+
+  template <class RT, class... RP>
+  KOKKOS_INLINE_FUNCTION void assign(const View<RT, RP...>& vt) noexcept {
+    m_tracker.assign_force_disable(vt.m_track.m_tracker);
+  }
+};
 }  // namespace Impl
 
 }  // namespace Kokkos

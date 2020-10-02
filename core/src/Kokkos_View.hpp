@@ -566,14 +566,6 @@ namespace Kokkos {
 template <class DataType, class... Properties>
 class View;
 
-// TODO Move this into ViewTracker.hpp
-namespace Impl {
-struct UntrackedAllocationRecord {};
-struct UntrackedViewTracker {
-using track_type = UntrackedAllocationRecord;
-};
-}  // namespace Impl
-
 template <class>
 struct is_view : public std::false_type {};
 

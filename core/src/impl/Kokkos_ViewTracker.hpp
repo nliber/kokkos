@@ -123,11 +123,21 @@ struct ViewTracker {
       : m_tracker(tt, view_traits::is_managed) {}
 };
 
+// UntrackedAllocationTracker is a trivially copyable
+// type that mimics the salient parts of the ViewTracker
+// interface, for use with unmanaged views that have to
+// be known at compile time, such as use with SYCL
+// TODO Move this to Kokkos_SharedAlloc.hpp, and mimic
+// the SharedAllocationTracker interface
 struct UntrackedAllocationTracker {
   KOKKOS_INLINE_FUNCTION
   void assign_force_disable() {}
 };
 
+// UntrackedViewTracker is an empty, trivially copyable
+// type that mimics the salient parts of the ViewTracker
+// interface, for use with unmanaged views that have to
+// be known at compile time, such as use with SYCL
 struct UntrackedViewTracker {
   using track_type  = UntrackedAllocationTracker;
   using view_traits = void;

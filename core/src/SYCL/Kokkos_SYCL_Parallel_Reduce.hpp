@@ -118,10 +118,10 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
       m_functor(TagType{}, i, update);
   }
 
-  template <typename PolicyType, typename Functor>
-  void sycl_direct_launch(const PolicyType& policy,
-                          const Functor& functor) const {
+  template <typename Functor>
+  void sycl_direct_launch(const Functor& functor) const {
     // Convenience references
+    const Policy& policy                    = m_policy;
     const Kokkos::Experimental::SYCL& space = policy.space();
     Kokkos::Experimental::Impl::SYCLInternal& instance =
         *space.impl_internal_space_instance();
@@ -167,15 +167,20 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     const Kokkos::Experimental::SYCL& space = m_policy.space();
     Kokkos::Experimental::Impl::SYCLInternal& instance =
         *space.impl_internal_space_instance();
-    Kokkos::Experimental::Impl::SYCLInternal::IndirectKernelMem& indirectKernelMem =
-        instance.m_indirectKernelMem;
+    Kokkos::Experimental::Impl::SYCLInternal::IndirectKernelMem&
+        indirectKernelMem = instance.m_indirectKernelMem;
 
     // Store a copy of the functor in USM memory
-    auto kernelFunctorPtr = indirectKernelMem.copy_from(ReducerTypeFwd(functor));
+    //
+    // Note: this uses auto because the return type is dependent
+    // on whether the USM memory is device (ReducerTypeFwd*) or shared
+    // (unique_ptr<ReducerTypeFwd, ...>)
+    auto kernelFunctorPtr =
+        indirectKernelMem.copy_from(static_cast<ReducerTypeFwd>(functor));
 
     // Launch it
-    auto kernelFunctor = std::reference_wrapper(*kernelFunctorPtr);
-    sycl_direct_launch(m_policy, kernelFunctor);
+    std::reference_wrapper kernelFunctor(*kernelFunctorPtr);
+    sycl_direct_launch(kernelFunctor);
   }
 
  public:
@@ -209,7 +214,7 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     }
 
     if constexpr (std::is_trivially_copyable_v<decltype(functor)>)
-      sycl_direct_launch(m_policy, functor);
+      sycl_direct_launch(functor);
     else
       sycl_indirect_launch(functor);
   }

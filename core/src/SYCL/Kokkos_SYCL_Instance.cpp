@@ -118,6 +118,7 @@ void SYCLInternal::finalize() {
     std::abort();
   }
 
+  m_reductionResultMem = ReductionResultMem();
   m_indirectKernelMem = IndirectKernelMem();
   m_queue.reset();
 }

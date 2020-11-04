@@ -125,7 +125,9 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     const Kokkos::Experimental::SYCL& space = policy.space();
     Kokkos::Experimental::Impl::SYCLInternal& instance =
         *space.impl_internal_space_instance();
-    cl::sycl::queue& q = *instance.m_queue;
+    Kokkos::Experimental::Impl::SYCLInternal::ReductionResultMem&
+        reductionResultMem = instance.m_reductionResultMem;
+    cl::sycl::queue& q     = *instance.m_queue;
 
     auto result_ptr = static_cast<pointer_type>(
         sycl::malloc(sizeof(*m_result_ptr), q, sycl::usm::alloc::shared));

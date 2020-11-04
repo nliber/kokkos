@@ -70,18 +70,154 @@ class SYCLInternal {
 
   std::unique_ptr<cl::sycl::queue> m_queue;
 
+  // USMObjectMem is a reusable buffer for a single object
+  // in USM memory
+  template <sycl::usm::alloc Kind>
+  class USMObjectMem {
+   public:
+    static constexpr sycl::usm::alloc kind = Kind;
+
+    friend void swap(USMObjectMem& lhs, USMObjectMem& rhs) noexcept {
+      using std::swap;
+      swap(lhs.m_q, rhs.m_q);
+      swap(lhs.m_data, rhs.m_data);
+      swap(lhs.m_capacity, rhs.m_capacity);
+    }
+
+    USMObjectMem()                    = default;
+    USMObjectMem(USMObjectMem const&) = delete;
+    USMObjectMem& operator=(USMObjectMem const&) = delete;
+
+    USMObjectMem(USMObjectMem&& that) noexcept
+        : m_q(std::move(that.m_q)),
+          m_data(that.m_data),
+          m_capacity(that.m_capacity) {
+      that.m_data     = nullptr;
+      that.m_capacity = 0;
+    }
+
+    USMObjectMem& operator=(USMObjectMem&& that) noexcept {
+      swap(*this, that);
+      return *this;
+    }
+
+    ~USMObjectMem() { sycl::free(m_data, m_q); }
+
+    explicit USMObjectMem(sycl::queue q) noexcept : m_q(std::move(q)) {}
+
+    sycl::queue queue() const noexcept { return m_q; }
+
+    void* data() noexcept { return m_data; }
+    const void* data() const noexcept { return m_data; }
+
+    size_t capacity() const noexcept { return m_capacity; }
+
+    // reserve() allocates space for at least n bytes
+    // returns the new capacity
+    size_t reserve(size_t n) {
+      if (m_capacity < n) {
+        // First free what we have (in case malloc can reuse it)
+        sycl::free(m_data, m_q);
+
+        m_data = sycl::malloc(n, m_q, kind);
+        if (!m_data) {
+          m_capacity = 0;
+          throw std::bad_alloc();
+        }
+
+        m_capacity = n;
+      }
+
+      return m_capacity;
+    }
+
+    // This will memcpy an object T into memory held by this object
+    // returns: a T* to that object
+    //
+    // Note:  it is UB to dereference this pointer with an object that is
+    // not an implicit-lifetime nor trivially-copyable type, but presumably much
+    // faster because we can use USM device memory
+    template <typename T>
+    T* memcpy_from(const T& t) {
+      reserve(sizeof(T));
+      sycl::event memcopied = m_q.memcpy(m_data, std::addressof(t), sizeof(T));
+      memcopied.wait();
+
+      return reinterpret_cast<T*>(m_data);
+    }
+
+    // This will copy-constuct an object T into memory held by this object
+    // returns: a unique_ptr<T, destruct_delete> that will call the
+    // destructor on the type when it goes out of scope.
+    //
+    // Note:  This will not work with USM device memory
+    template <typename T>
+    std::unique_ptr<T, Kokkos::Impl::destruct_delete> copy_construct_from(
+        const T& t) {
+      static_assert(kind != sycl::usm::alloc::device,
+                    "Cannot copy construct into USM device memory");
+
+      reserve(sizeof(T));
+      return std::unique_ptr<T, Kokkos::Impl::destruct_delete>(new (m_data)
+                                                                   T(t));
+    }
+
+    // Performs either memcpy (for USM device memory) and returns a T*
+    // (but is technically UB when dereferenced on an object that is not
+    // an implicit-lifetime nor trivially-copyable type
+    //
+    // or
+    //
+    // performs copy construction (for other USM memory types) and returns a
+    // unique_ptr<T, ...>
+    template <typename T>
+    auto copy_from(const T& t) {
+      if constexpr (sycl::usm::alloc::device == kind)
+        return memcpy_from(t);
+      else
+        return copy_construct_from(t);
+    }
+
+    template <typename T>
+    T& memcpy_to(T& t) const {
+      assert(sizeof(T) <= m_capacity);
+
+      sycl::event memcopied = m_q.memcpy(std::addressof(t), m_data, sizeof(T));
+      memcopied.wait();
+
+      return t;
+    }
+
+    template <typename T>
+    T& move_assign_to(T& t) const {
+      static_assert(kind != sycl::usm::alloc::device,
+                    "Cannot move_assign_to from USM device memory");
+      assert(sizeof(T) <= m_capacity);
+
+      t = std::move(*static_cast<T*>(m_data));
+
+      return t;
+    }
+
+    template <typename T>
+    T& transfer_to(T& t) const {
+      if constexpr (sycl::usm::alloc::device == kind)
+        return memcpy_to(t);
+      else
+        return move_assign_to(t);
+    }
+
+   private:
+    sycl::queue m_q;
+    void* m_data      = nullptr;
+    size_t m_capacity = 0;
+  };
+
   // An indirect kernel is one where the functor to be executed is explicitly
-  // created in USM shared memory before being executed, to get around the
+  // copied to USM device memory before being executed, to get around the
   // trivially copyable limitation of SYCL.
-  //
-  // m_indirectKernel just manages the memory as a reuseable buffer.  It is
-  // stored in an optional because the allocator contains a queue
-  using IndirectKernelAllocator =
-      sycl::usm_allocator<std::byte, sycl::usm::alloc::shared>;
-  using IndirectKernelMemory =
-      std::vector<IndirectKernelAllocator::value_type, IndirectKernelAllocator>;
-  using IndirectKernel = std::optional<IndirectKernelMemory>;
-  IndirectKernel m_indirectKernel;
+  using IndirectKernelMem = USMObjectMem<sycl::usm::alloc::shared>;
+  IndirectKernelMem m_indirectKernelMem;
 
   static int was_finalized;
 

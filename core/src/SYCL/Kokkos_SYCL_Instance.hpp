@@ -179,7 +179,7 @@ class SYCLInternal {
     }
 
     template <typename T>
-    T& memcpy_to(T& t) const {
+    T& memcpy_to(T& t) {
       assert(sizeof(T) <= m_capacity);
 
       sycl::event memcopied = m_q.memcpy(std::addressof(t), m_data, sizeof(T));
@@ -189,7 +189,7 @@ class SYCLInternal {
     }
 
     template <typename T>
-    T& move_assign_to(T& t) const {
+    T& move_assign_to(T& t) {
       static_assert(kind != sycl::usm::alloc::device,
                     "Cannot move_assign_to from USM device memory");
       assert(sizeof(T) <= m_capacity);
@@ -200,7 +200,7 @@ class SYCLInternal {
     }
 
     template <typename T>
-    T& transfer_to(T& t) const {
+    T& transfer_to(T& t) {
       if constexpr (sycl::usm::alloc::device == kind)
         return memcpy_to(t);
       else
@@ -219,7 +219,7 @@ class SYCLInternal {
   using IndirectKernelMem = USMObjectMem<sycl::usm::alloc::shared>;
   IndirectKernelMem m_indirectKernelMem;
 
-  using ReductionResultMem = USMObjectMem<sycl::usm::alloc::shared>;
+  using ReductionResultMem = USMObjectMem<sycl::usm::alloc::device>;
   ReductionResultMem m_reductionResultMem;
 
   static int was_finalized;

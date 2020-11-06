@@ -127,7 +127,7 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
         *space.impl_internal_space_instance();
     Kokkos::Experimental::Impl::SYCLInternal::ReductionResultMem&
         reductionResultMem = instance.m_reductionResultMem;
-    cl::sycl::queue& q     = *instance.m_queue;
+    sycl::queue& q     = *instance.m_queue;
 
     auto result_ptr = static_cast<pointer_type>(
         sycl::malloc(sizeof(*m_result_ptr), q, sycl::usm::alloc::shared));
@@ -136,17 +136,17 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     ValueInit::init(functor, &host_result);
     q.memcpy(result_ptr, &host_result, sizeof(host_result));
 
-    q.submit([functor, policy, result_ptr](cl::sycl::handler& cgh) {
+    q.submit([functor, policy, result_ptr](sycl::handler& cgh) {
       // FIXME_SYCL a local size larger than 1 doesn't work for all cases
-      cl::sycl::nd_range<1> range(policy.end() - policy.begin(), 1);
+      sycl::nd_range<1> range(policy.end() - policy.begin(), 1);
 
       constexpr value_type identity{};
 
       auto reduction =
-          cl::sycl::ONEAPI::reduction(result_ptr, identity, std::plus<>());
+          sycl::ONEAPI::reduction(result_ptr, identity, std::plus<>());
 
       cgh.parallel_for(
-          range, reduction, [=](cl::sycl::nd_item<1> item, auto& sum) {
+          range, reduction, [=](sycl::nd_item<1> item, auto& sum) {
             const typename Policy::index_type id = item.get_global_id(0);
             value_type partial                   = identity;
             if constexpr (std::is_same<WorkTag, void>::value)
@@ -189,7 +189,7 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     const Kokkos::Experimental::SYCL& space = m_policy.space();
     Kokkos::Experimental::Impl::SYCLInternal& instance =
         *space.impl_internal_space_instance();
-    cl::sycl::queue& q = *instance.m_queue;
+    sycl::queue& q = *instance.m_queue;
 
     ReducerTypeFwd functor = ReducerConditional::select(m_functor, m_reducer);
 

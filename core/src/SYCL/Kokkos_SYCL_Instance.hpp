@@ -219,7 +219,7 @@ class SYCLInternal {
   using IndirectKernelMem = USMObjectMem<sycl::usm::alloc::shared>;
   IndirectKernelMem m_indirectKernelMem;
 
-  using ReductionResultMem = USMObjectMem<sycl::usm::alloc::device>;
+  using ReductionResultMem = USMObjectMem<sycl::usm::alloc::shared>;
   ReductionResultMem m_reductionResultMem;
 
   static int was_finalized;

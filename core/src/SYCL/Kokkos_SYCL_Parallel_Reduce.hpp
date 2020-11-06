@@ -185,36 +185,39 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     sycl_direct_launch(kernelFunctor);
   }
 
- public:
-  void execute() const {
+  void zero_length_reduction() const {
+    const Kokkos::Experimental::SYCL& space = m_policy.space();
+    Kokkos::Experimental::Impl::SYCLInternal& instance =
+        *space.impl_internal_space_instance();
+    cl::sycl::queue& q = *instance.m_queue;
+
     ReducerTypeFwd functor = ReducerConditional::select(m_functor, m_reducer);
 
-    if (m_policy.begin() == m_policy.end()) {
-      const Kokkos::Experimental::SYCL& space = m_policy.space();
-      Kokkos::Experimental::Impl::SYCLInternal& instance =
-          *space.impl_internal_space_instance();
-      cl::sycl::queue& q = *instance.m_queue;
+    sycl::usm::alloc result_ptr_type =
+        sycl::get_pointer_type(m_result_ptr, q.get_context());
 
-      sycl::usm::alloc result_ptr_type =
-          sycl::get_pointer_type(m_result_ptr, q.get_context());
-
-      switch (result_ptr_type) {
-        case sycl::usm::alloc::host:
-        case sycl::usm::alloc::shared:
-        case sycl::usm::alloc::unknown:  // non-USM allocated memory
-          ValueInit::init(functor, m_result_ptr);
-          break;
-        case sycl::usm::alloc::device: {
-          value_type host_result;
-          ValueInit::init(functor, m_result_ptr);
-          sycl::event memcopied =
-              q.memcpy(m_result_ptr, &host_result, sizeof(host_result));
-          memcopied.wait();
-        } break;
-        default: break;  // TODO abort
-      }
-      return;
+    switch (result_ptr_type) {
+      case sycl::usm::alloc::host:
+      case sycl::usm::alloc::shared:
+      case sycl::usm::alloc::unknown:  // non-USM allocated memory
+        ValueInit::init(functor, m_result_ptr);
+        break;
+      case sycl::usm::alloc::device: {
+        value_type host_result;
+        ValueInit::init(functor, m_result_ptr);
+        sycl::event memcopied =
+            q.memcpy(m_result_ptr, &host_result, sizeof(host_result));
+        memcopied.wait();
+      } break;
+      default: break;  // TODO abort
     }
+  }
+
+ public:
+  void execute() const {
+    if (m_policy.begin() == m_policy.end()) return zero_length_reduction();
+
+    ReducerTypeFwd functor = ReducerConditional::select(m_functor, m_reducer);
 
     if constexpr (std::is_trivially_copyable_v<decltype(functor)>)
       sycl_direct_launch(functor);

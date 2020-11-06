@@ -201,16 +201,17 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
       switch (result_ptr_type) {
         case sycl::usm::alloc::host:
         case sycl::usm::alloc::shared:
+        case sycl::usm::alloc::unknown:  // non-USM allocated memory
           ValueInit::init(functor, m_result_ptr);
           break;
-        case sycl::usm::alloc::device:
-          // non-USM-allocated memory
-        case sycl::usm::alloc::unknown:
+        case sycl::usm::alloc::device: {
           value_type host_result;
-          ValueInit::init(functor, &host_result);
-          q.memcpy(m_result_ptr, &host_result, sizeof(host_result)).wait();
-          break;
-        default: break;
+          ValueInit::init(functor, m_result_ptr);
+          sycl::event memcopied =
+              q.memcpy(m_result_ptr, &host_result, sizeof(host_result));
+          memcopied.wait();
+        } break;
+        default: break;  // TODO abort
       }
       return;
     }

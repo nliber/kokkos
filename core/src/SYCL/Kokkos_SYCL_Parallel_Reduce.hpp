@@ -125,16 +125,30 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     const Kokkos::Experimental::SYCL& space = policy.space();
     Kokkos::Experimental::Impl::SYCLInternal& instance =
         *space.impl_internal_space_instance();
-    Kokkos::Experimental::Impl::SYCLInternal::ReductionResultMem&
-        reductionResultMem = instance.m_reductionResultMem;
-    sycl::queue& q     = *instance.m_queue;
+    using ReductionResultMem =
+        Kokkos::Experimental::Impl::SYCLInternal::ReductionResultMem;
+    ReductionResultMem& reductionResultMem = instance.m_reductionResultMem;
+    sycl::queue& q                         = *instance.m_queue;
 
+#define NLIBER
+#ifndef NLIBER
     auto result_ptr = static_cast<pointer_type>(
         sycl::malloc(sizeof(*m_result_ptr), q, sycl::usm::alloc::shared));
+#endif
 
     value_type host_result;
     ValueInit::init(functor, &host_result);
+#ifdef NLIBER
+    Kokkos::Experimental::Impl::SYCLInternal::USMObjectMem<
+        sycl::usm::alloc::shared>
+        resultMem(q);
+    // auto fancy_result_ptr   = resultMem.copy_from(host_result);
+    auto fancy_result_ptr   = reductionResultMem.copy_from(host_result);
+    pointer_type result_ptr = ReductionResultMem::to_address(fancy_result_ptr);
+#endif
+#ifndef NLIBER
     q.memcpy(result_ptr, &host_result, sizeof(host_result));
+#endif
 
     q.submit([functor, policy, result_ptr](sycl::handler& cgh) {
       // FIXME_SYCL a local size larger than 1 doesn't work for all cases
@@ -145,22 +159,23 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
       auto reduction =
           sycl::ONEAPI::reduction(result_ptr, identity, std::plus<>());
 
-      cgh.parallel_for(
-          range, reduction, [=](sycl::nd_item<1> item, auto& sum) {
-            const typename Policy::index_type id = item.get_global_id(0);
-            value_type partial                   = identity;
-            if constexpr (std::is_same<WorkTag, void>::value)
-              functor(id, partial);
-            else
-              functor(WorkTag(), id, partial);
-            sum.combine(partial);
-          });
+      cgh.parallel_for(range, reduction, [=](sycl::nd_item<1> item, auto& sum) {
+        const typename Policy::index_type id = item.get_global_id(0);
+        value_type partial                   = identity;
+        if constexpr (std::is_same<WorkTag, void>::value)
+          functor(id, partial);
+        else
+          functor(WorkTag(), id, partial);
+        sum.combine(partial);
+      });
     });
 
     q.wait();
 
     *m_result_ptr = *result_ptr;
+#ifndef NLIBER
     sycl::free(result_ptr, q);
+#endif
   }
 
   template <typename Functor>

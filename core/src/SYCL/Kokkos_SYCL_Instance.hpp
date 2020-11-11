@@ -178,6 +178,20 @@ class SYCLInternal {
         return copy_construct_from(t);
     }
 
+    // to_address returns a raw pointer that represents the same address as p
+    // Used to convert what copy_from returns into a raw pointer
+    // In C++20, remove entirely and replace uses with std::to_address
+
+    template <typename P>
+    static constexpr P* to_address(P* p) noexcept {
+      return p;
+    }
+
+    template <typename T, typename D>
+    static constexpr T* to_address(std::unique_ptr<T, D> const& p) noexcept {
+      return p.get();
+    }
+
     template <typename T>
     T& memcpy_to(T& t) {
       assert(sizeof(T) <= m_capacity);

@@ -130,25 +130,14 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     ReductionResultMem& reductionResultMem = instance.m_reductionResultMem;
     sycl::queue& q                         = *instance.m_queue;
 
-#define NLIBER
-#ifndef NLIBER
-    auto result_ptr = static_cast<pointer_type>(
-        sycl::malloc(sizeof(*m_result_ptr), q, sycl::usm::alloc::shared));
-#endif
-
     value_type host_result;
     ValueInit::init(functor, &host_result);
-#ifdef NLIBER
     Kokkos::Experimental::Impl::SYCLInternal::USMObjectMem<
         sycl::usm::alloc::shared>
         resultMem(q);
     // auto fancy_result_ptr   = resultMem.copy_from(host_result);
     auto fancy_result_ptr   = reductionResultMem.copy_from(host_result);
-    pointer_type result_ptr = ReductionResultMem::to_address(fancy_result_ptr);
-#endif
-#ifndef NLIBER
-    q.memcpy(result_ptr, &host_result, sizeof(host_result));
-#endif
+    pointer_type result_ptr = &*fancy_result_ptr;
 
     q.submit([functor, policy, result_ptr](sycl::handler& cgh) {
       // FIXME_SYCL a local size larger than 1 doesn't work for all cases
@@ -172,10 +161,7 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
 
     q.wait();
 
-    *m_result_ptr = *result_ptr;
-#ifndef NLIBER
-    sycl::free(result_ptr, q);
-#endif
+    reductionResultMem.transfer_to(*m_result_ptr);
   }
 
   template <typename Functor>

@@ -135,7 +135,6 @@ class ParallelReduce<FunctorType, Kokkos::RangePolicy<Traits...>, ReducerType,
     Kokkos::Experimental::Impl::SYCLInternal::USMObjectMem<
         sycl::usm::alloc::shared>
         resultMem(q);
-    // auto fancy_result_ptr   = resultMem.copy_from(host_result);
     auto fancy_result_ptr   = reductionResultMem.copy_from(host_result);
     pointer_type result_ptr = &*fancy_result_ptr;
 

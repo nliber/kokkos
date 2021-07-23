@@ -344,6 +344,29 @@ TEST(TEST_CATEGORY, UnorderedMap_clear_zero_size) {
   ASSERT_EQ(0u, m.size());
 }
 
+template <typename OldDevice, typename NewDevice>
+void test_create_mirror() {
+  using OldMap = Kokkos::UnorderedMap<int, void, OldDevice>;
+  using NewMap = Kokkos::UnorderedMap<int, void, NewDevice>;
+
+  OldMap om(129);
+  om.insert(2);
+  om.insert(3);
+  om.insert(5);
+  om.insert(7);
+
+  NewDevice nd;
+  NewMap nm = Kokkos::create_mirror<NewDevice>(nd, om);
+  ASSERT_EQ(om.capacity(), nm.capacity());
+  ASSERT_EQ(om.size(), nm.size());
+
+  for (int i = 0; i != 9; ++i) ASSERT_EQ(om.exists(i), nm.exists(i));
+}
+
+TEST(TEST_CATEGORY, UnorderedMap_create_mirror) {
+  test_create_mirror<Kokkos::DefaultHostExecutionSpace, TEST_EXECSPACE>();
+}
+
 }  // namespace Test
 
 #endif  // KOKKOS_TEST_UNORDERED_MAP_HPP

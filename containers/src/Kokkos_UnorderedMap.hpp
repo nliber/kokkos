@@ -203,7 +203,7 @@ template <typename Key, typename Value,
           typename Device = Kokkos::DefaultExecutionSpace,
           typename Hasher = pod_hash<typename std::remove_const<Key>::type>,
           typename EqualTo =
-              pod_equal_to<typename std::remove_const<Key>::type> >
+              pod_equal_to<typename std::remove_const<Key>::type>>
 class UnorderedMap {
  private:
   using host_mirror_space =
@@ -268,20 +268,20 @@ class UnorderedMap {
 
   using key_type_view = std::conditional_t<
       is_insertable_map, View<key_type *, device_type>,
-      View<const key_type *, device_type, MemoryTraits<RandomAccess> > >;
+      View<const key_type *, device_type, MemoryTraits<RandomAccess>>>;
 
   using value_type_view = std::conditional_t<
       is_insertable_map || is_modifiable_map,
       View<impl_value_type *, device_type>,
-      View<const impl_value_type *, device_type, MemoryTraits<RandomAccess> > >;
+      View<const impl_value_type *, device_type, MemoryTraits<RandomAccess>>>;
 
   using size_type_view = std::conditional_t<
       is_insertable_map, View<size_type *, device_type>,
-      View<const size_type *, device_type, MemoryTraits<RandomAccess> > >;
+      View<const size_type *, device_type, MemoryTraits<RandomAccess>>>;
 
   using bitset_type =
       std::conditional_t<is_insertable_map, Bitset<execution_space>,
-                         ConstBitset<execution_space> >;
+                         ConstBitset<execution_space>>;
 
   enum { modified_idx = 0, erasable_idx = 1, failed_insert_idx = 2 };
   enum { num_scalars = 3 };
@@ -835,6 +835,36 @@ inline void deep_copy(
     UnorderedMap<DKey, DT, DDevice, Hasher, EqualTo> &dst,
     const UnorderedMap<SKey, ST, SDevice, Hasher, EqualTo> &src) {
   dst.create_copy_view(src);
+}
+
+template <typename NewDevice, typename Key, typename Value, typename OldDevice,
+          typename Hasher, typename EqualTo>
+UnorderedMap<Key, Value, NewDevice, Hasher, EqualTo> create_mirror(
+    NewDevice const &,
+    UnorderedMap<Key, Value, OldDevice, Hasher, EqualTo> const &old_map) {
+  UnorderedMap<Key, Value, NewDevice, Hasher, EqualTo> new_map;
+  new_map.create_copy_view(old_map);
+  return new_map;
+}
+
+template <typename NewDevice, typename Key, typename Value, typename OldDevice,
+          typename Hasher, typename EqualTo>
+std::enable_if_t<SpaceAccessibility<NewDevice, OldDevice>::accessible,
+                 UnorderedMap<Key, Value, OldDevice, Hasher, EqualTo>>
+create_mirror_view(
+    NewDevice const &,
+    UnorderedMap<Key, Value, OldDevice, Hasher, EqualTo> const &map) {
+  return map;
+}
+
+template <typename NewDevice, typename Key, typename Value, typename OldDevice,
+          typename Hasher, typename EqualTo>
+std::enable_if_t<!SpaceAccessibility<NewDevice, OldDevice>::accessible,
+                 UnorderedMap<Key, Value, NewDevice, Hasher, EqualTo>>
+create_mirror_view(
+    NewDevice const &new_device,
+    UnorderedMap<Key, Value, OldDevice, Hasher, EqualTo> const &old_map) {
+  return create_mirror(new_device, old_map);
 }
 
 }  // namespace Kokkos

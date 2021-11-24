@@ -845,12 +845,42 @@ KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
 }
 
 template <
-    typename Member, typename... Ns,
+    Kokkos::Iterate Direction, typename Member, typename iType, size_t Rank,
     typename = std::enable_if_t<Impl::is_thread_team_member<Member>::value>>
 KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
-                                              Ns&&... ns) {
-  return MDTeamThreadRange<Kokkos::Iterate::Default>(member,
-                                                     static_cast<Ns&&>(ns)...);
+                                              const iType (&array)[Rank]) {
+  using execution_space = typename Member::execution_space;
+  using array_layout    = typename execution_space::array_layout;
+  static constexpr Kokkos::Iterate outer_direction =
+      Direction == Kokkos::Iterate::Default
+          ? Kokkos::layout_iterate_type_selector<
+                array_layout>::outer_iteration_pattern
+          : Direction;
+
+  using non_const_iType = std::remove_const_t<iType>;
+  typedef const iType(&const_array_ref)[Rank];
+  using const_array = const iType[Rank];
+
+  return Impl::MDTeamThreadRangeBoundariesStruct<outer_direction, Rank,
+                                                 non_const_iType, Member>(
+      member, const_cast<const_array const&>(array));
+}
+
+// template <
+//     typename Member, typename... Ns,
+//     typename = std::enable_if_t<Impl::is_thread_team_member<Member>::value>>
+// KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
+//                                               Ns&&... ns) {
+//   return MDTeamThreadRange<Kokkos::Iterate::Default>(member,
+//                                                      static_cast<Ns&&>(ns)...);
+// }
+
+template <
+    typename Member, typename iType, size_t Rank,
+    typename = std::enable_if_t<Impl::is_thread_team_member<Member>::value>>
+KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
+                                              const iType (&array)[Rank]) {
+  return MDTeamThreadRange<Kokkos::Iterate::Default>(member, array);
 }
 
 template <
@@ -918,8 +948,7 @@ template <
     typename = std::enable_if_t<Impl::is_thread_team_member<Member>::value>>
 KOKKOS_INLINE_FUNCTION auto MDTeamVectorRange(Member const& member,
                                               Ns&&... ns) {
-  return MDTeamVectorRange<Kokkos::Iterate::Default,
-                           Kokkos::Iterate::Default>(
+  return MDTeamVectorRange<Kokkos::Iterate::Default, Kokkos::Iterate::Default>(
       member, static_cast<Ns&&>(ns)...);
 }
 
@@ -999,9 +1028,9 @@ template <size_t RemainingRank>
 struct ParallelForMDTeamThreadRangeHostImpl {
  private:
   template <typename Boundaries, typename Closure>
-  KOKKOS_INLINE_FUNCTION 
-  static void next_rank(Boundaries const& boundaries, Closure const& closure,
-                        typename Boundaries::index_type i) {
+  KOKKOS_INLINE_FUNCTION static void next_rank(
+      Boundaries const& boundaries, Closure const& closure,
+      typename Boundaries::index_type i) {
     auto newClosure = [i, &closure](auto... is) { closure(i, is...); };
     ParallelForMDTeamThreadRangeHostImpl<RemainingRank - 1>::parallel_for_impl(
         boundaries, newClosure);
@@ -1011,9 +1040,8 @@ struct ParallelForMDTeamThreadRangeHostImpl {
   static constexpr size_t remaining_rank = RemainingRank;
 
   template <typename Boundaries, typename Closure>
-  KOKKOS_INLINE_FUNCTION 
-  static void parallel_for_impl(Boundaries const& boundaries,
-                                Closure const& closure) {
+  KOKKOS_INLINE_FUNCTION static void parallel_for_impl(
+      Boundaries const& boundaries, Closure const& closure) {
     using index_type = typename Boundaries::index_type;
     if (Boundaries::direction == Kokkos::Iterate::Right) {
       for (index_type i = 0;
@@ -1037,19 +1065,20 @@ struct ParallelForMDTeamThreadRangeHostImpl<0> {
   static constexpr size_t remaining_rank = 0;
 
   template <typename Boundaries, typename Closure>
-  KOKKOS_INLINE_FUNCTION 
-  static void parallel_for_impl(Boundaries const&, Closure const& closure) {
+  KOKKOS_INLINE_FUNCTION static void parallel_for_impl(Boundaries const&,
+                                                       Closure const& closure) {
     closure();
   }
 };
 
 template <Kokkos::Iterate direction, size_t Rank, typename iType,
           typename TeamMemberType, typename Closure>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<
-    Impl::is_host_thread_team_member<TeamMemberType>::value>
-parallel_for(Impl::MDTeamThreadRangeBoundariesStruct<
-                 direction, Rank, iType, TeamMemberType> const& loop_boundaries,
-             Closure const& closure) {
+KOKKOS_INLINE_FUNCTION
+    std::enable_if_t<Impl::is_host_thread_team_member<TeamMemberType>::value>
+    parallel_for(Impl::MDTeamThreadRangeBoundariesStruct<direction, Rank, iType,
+                                                         TeamMemberType> const&
+                     loop_boundaries,
+                 Closure const& closure) {
   ParallelForMDTeamThreadRangeHostImpl<Rank>::parallel_for_impl(loop_boundaries,
                                                                 closure);
 }
@@ -1285,7 +1314,7 @@ template <Kokkos::Iterate Direction, size_t Rank, typename iType,
           typename Member, typename Closure, typename ValueType>
 KOKKOS_INLINE_FUNCTION
     std::enable_if_t<!Kokkos::is_reducer<ValueType>::value &&
-                      Impl::is_host_thread_team_member<Member>::value>
+                     Impl::is_host_thread_team_member<Member>::value>
     parallel_reduce(Impl::MDTeamThreadRangeBoundariesStruct<
                         Direction, Rank, iType, Member> const& boundaries,
                     Closure const& closure, ValueType& result) {
@@ -1355,7 +1384,7 @@ template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection,
           typename ValueType>
 KOKKOS_INLINE_FUNCTION
     std::enable_if_t<!Kokkos::is_reducer<ValueType>::value &&
-                      Impl::is_host_thread_team_member<Member>::value>
+                     Impl::is_host_thread_team_member<Member>::value>
     parallel_reduce(Impl::MDThreadVectorRangeBoundariesStruct<
                         OuterDirection, InnerDirection, Rank, iType,
                         Member> const& boundaries,
@@ -1365,30 +1394,34 @@ KOKKOS_INLINE_FUNCTION
   parallel_for(boundaries, [&](auto... is) { closure(is..., result); });
 }
 
-template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection, size_t Rank,
-          typename iType, typename Member, typename Closure, typename Reducer>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<
-    Kokkos::is_reducer<Reducer>::value &&
-    Impl::is_host_thread_team_member<Member>::value>
-parallel_reduce(
-    Impl::MDTeamVectorRangeBoundariesStruct<OuterDirection, InnerDirection, Rank, iType, Member> const&
-    boundaries, Closure const& closure, Reducer const& reducer) {
+template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection,
+          size_t Rank, typename iType, typename Member, typename Closure,
+          typename Reducer>
+KOKKOS_INLINE_FUNCTION
+    std::enable_if_t<Kokkos::is_reducer<Reducer>::value &&
+                     Impl::is_host_thread_team_member<Member>::value>
+    parallel_reduce(Impl::MDTeamVectorRangeBoundariesStruct<
+                        OuterDirection, InnerDirection, Rank, iType,
+                        Member> const& boundaries,
+                    Closure const& closure, Reducer const& reducer) {
   typename Reducer::value_type value;
   reducer.init(value);
 
-  parallel_for(boundaries, [&](auto... is) { closure(is ..., value); } );
+  parallel_for(boundaries, [&](auto... is) { closure(is..., value); });
 
   boundaries.team_member.team_reduce(reducer, value);
 }
 
-template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection, size_t Rank,
-          typename iType, typename Member, typename Closure, typename ValueType>
-KOKKOS_INLINE_FUNCTION std::enable_if_t<
-    !Kokkos::is_reducer<ValueType>::value &&
-    Impl::is_host_thread_team_member<Member>::value>
-parallel_reduce(
-    Impl::MDTeamVectorRangeBoundariesStruct<OuterDirection, InnerDirection, Rank, iType, Member> const&
-    boundaries, Closure const& closure, ValueType& result) {
+template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection,
+          size_t Rank, typename iType, typename Member, typename Closure,
+          typename ValueType>
+KOKKOS_INLINE_FUNCTION
+    std::enable_if_t<!Kokkos::is_reducer<ValueType>::value &&
+                     Impl::is_host_thread_team_member<Member>::value>
+    parallel_reduce(Impl::MDTeamVectorRangeBoundariesStruct<
+                        OuterDirection, InnerDirection, Rank, iType,
+                        Member> const& boundaries,
+                    Closure const& closure, ValueType& result) {
   Sum<ValueType> reducer(result);
   reducer.init(result);
 

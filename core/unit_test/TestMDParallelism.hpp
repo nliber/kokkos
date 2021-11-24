@@ -2498,11 +2498,13 @@ TEST(TEST_CATEGORY, MDParallelFor) {
 
   {
     auto md_thread_vector_range = [](auto const& team, auto... ns) {
-      return Kokkos::MDTeamThreadRange(team, ns...);
+      const int nsArray[sizeof...(ns)] = {ns...};
+      return Kokkos::MDTeamThreadRange(team, nsArray);
     };
 
     auto md_thread_vector_range_left = [](auto const& team, auto... ns) {
-      return Kokkos::MDTeamThreadRange<Kokkos::Iterate::Left>(team, ns...);
+      const int nsArray[sizeof...(ns)] = {ns...};
+      return Kokkos::MDTeamThreadRange<Kokkos::Iterate::Left>(team, nsArray);
     };
 
     TestMDParallelFor<TEST_EXECSPACE>::test_for_MDTeamThreadRange(

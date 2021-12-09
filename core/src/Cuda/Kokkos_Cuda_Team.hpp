@@ -458,11 +458,13 @@ struct MDTeamThreadRangeBoundariesStruct<Direction, Rank, iType,
 
   KOKKOS_INLINE_FUNCTION
   MDTeamThreadRangeBoundariesStruct(CudaTeamMember const& member,
-                                    const iType(&array)[Rank])
-      : thread(member), threadDims(array) {}
+                                    const iType (&array)[Rank])
+      : thread(member) {
+    std::copy(&array[0], &array[Rank], &threadDims[0]);
+  }
 
   CudaTeamMember const& thread;
-  iType const threadDims[Rank];
+  iType threadDims[Rank];
 };
 
 template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection,
@@ -605,7 +607,7 @@ KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(
 
 template <Kokkos::Iterate Direction, typename iType, size_t Rank>
 KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(
-    Impl::CudaTeamMember const& member, iType(&array)[Rank]) {
+    Impl::CudaTeamMember const& member, iType (&array)[Rank]) {
   using execution_space = typename Impl::CudaTeamMember::execution_space;
   using array_layout    = typename execution_space::array_layout;
   static constexpr Kokkos::Iterate outer_direction =
@@ -618,8 +620,8 @@ KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(
   typedef const iType(&const_array_ref)[Rank];
   using const_array = const iType[Rank];
 
-  return Impl::MDTeamThreadRangeBoundariesStruct<outer_direction, Rank,
-                                                 non_const_iType, Impl::CudaTeamMember>(
+  return Impl::MDTeamThreadRangeBoundariesStruct<
+      outer_direction, Rank, non_const_iType, Impl::CudaTeamMember>(
       member, const_cast<const_array const&>(array));
 }
 

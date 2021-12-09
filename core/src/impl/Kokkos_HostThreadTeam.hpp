@@ -845,42 +845,12 @@ KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
 }
 
 template <
-    Kokkos::Iterate Direction, typename Member, typename iType, size_t Rank,
+    typename Member, typename... Ns,
     typename = std::enable_if_t<Impl::is_thread_team_member<Member>::value>>
 KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
-                                              const iType (&array)[Rank]) {
-  using execution_space = typename Member::execution_space;
-  using array_layout    = typename execution_space::array_layout;
-  static constexpr Kokkos::Iterate outer_direction =
-      Direction == Kokkos::Iterate::Default
-          ? Kokkos::layout_iterate_type_selector<
-                array_layout>::outer_iteration_pattern
-          : Direction;
-
-  using non_const_iType = std::remove_const_t<iType>;
-  typedef const iType(&const_array_ref)[Rank];
-  using const_array = const iType[Rank];
-
-  return Impl::MDTeamThreadRangeBoundariesStruct<outer_direction, Rank,
-                                                 non_const_iType, Member>(
-      member, const_cast<const_array const&>(array));
-}
-
-// template <
-//     typename Member, typename... Ns,
-//     typename = std::enable_if_t<Impl::is_thread_team_member<Member>::value>>
-// KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
-//                                               Ns&&... ns) {
-//   return MDTeamThreadRange<Kokkos::Iterate::Default>(member,
-//                                                      static_cast<Ns&&>(ns)...);
-// }
-
-template <
-    typename Member, typename iType, size_t Rank,
-    typename = std::enable_if_t<Impl::is_thread_team_member<Member>::value>>
-KOKKOS_INLINE_FUNCTION auto MDTeamThreadRange(Member const& member,
-                                              const iType (&array)[Rank]) {
-  return MDTeamThreadRange<Kokkos::Iterate::Default>(member, array);
+                                              Ns&&... ns) {
+  return MDTeamThreadRange<Kokkos::Iterate::Default>(member,
+                                                     static_cast<Ns&&>(ns)...);
 }
 
 template <

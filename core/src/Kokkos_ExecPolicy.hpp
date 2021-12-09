@@ -990,11 +990,13 @@ struct MDTeamThreadRangeBoundariesStruct {
 
   KOKKOS_INLINE_FUNCTION
   MDTeamThreadRangeBoundariesStruct(TeamMemberType const& member,
-                                    const iType(&array)[Rank])
-      : thread(member), threadDims(array) {}
+                                    const iType (&array)[Rank])
+      : thread(member) {
+    std::copy(&array[0], &array[Rank], &threadDims[0]);
+  }
 
   TeamMemberType const& thread;
-  iType const threadDims[Rank];
+  iType threadDims[Rank];
 };
 
 template <typename T>
@@ -1002,7 +1004,7 @@ struct IsMDTeamThreadRangeBoundariesStruct : std::false_type {};
 
 template <Kokkos::Iterate Direction, size_t Rank, typename iType,
           typename TeamMemberType>
-    struct IsMDTeamThreadRangeBoundariesStruct <
+struct IsMDTeamThreadRangeBoundariesStruct<
     MDTeamThreadRangeBoundariesStruct<Direction, Rank, iType, TeamMemberType>>
     : std::true_type {};
 

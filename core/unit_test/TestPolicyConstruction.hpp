@@ -721,6 +721,7 @@ TEST(TEST_CATEGORY, policy_converting_constructor_from_other_policy) {
       Kokkos::MDRangePolicy<TEST_EXECSPACE, Kokkos::Rank<2>>{});
 }
 
+#ifndef KOKKOS_COMPILER_NVHPC       // FIXME_NVHPC
 #ifndef KOKKOS_ENABLE_OPENMPTARGET  // FIXME_OPENMPTARGET
 TEST(TEST_CATEGORY_DEATH, policy_bounds_unsafe_narrowing_conversions) {
   using Policy = Kokkos::MDRangePolicy<TEST_EXECSPACE, Kokkos::Rank<2>,
@@ -733,6 +734,7 @@ TEST(TEST_CATEGORY_DEATH, policy_bounds_unsafe_narrowing_conversions) {
       },
       "unsafe narrowing conversion");
 }
+#endif
 #endif
 
 template <class Policy>
@@ -795,7 +797,8 @@ struct static_assert_dummy_policy_must_be_size_of_desired_occupancy<
     sizeof(Kokkos::Experimental::DesiredOccupancy),
     sizeof(Kokkos::Experimental::DesiredOccupancy)> {};
 
-#ifndef _WIN32
+// EBO failure with VS 16.11.3 and CUDA 11.4.2
+#if !(defined(_WIN32) && defined(KOKKOS_ENABLE_CUDA))
 TEST(TEST_CATEGORY, desired_occupancy_empty_base_optimization) {
   DummyPolicy<TEST_EXECSPACE> const policy{};
   static_assert(sizeof(decltype(policy)) == 1, "");

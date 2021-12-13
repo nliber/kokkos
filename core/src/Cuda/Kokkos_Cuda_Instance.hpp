@@ -55,17 +55,17 @@ struct CudaTraits {
 
 CudaSpace::size_type cuda_internal_multiprocessor_count();
 CudaSpace::size_type cuda_internal_maximum_warp_count();
-CudaSpace::size_type cuda_internal_maximum_grid_count();
+std::array<CudaSpace::size_type, 3> cuda_internal_maximum_grid_count();
 CudaSpace::size_type cuda_internal_maximum_shared_words();
 
 CudaSpace::size_type cuda_internal_maximum_concurrent_block_count();
 
-CudaSpace::size_type* cuda_internal_scratch_flags(
-    const Cuda&, const CudaSpace::size_type size);
-CudaSpace::size_type* cuda_internal_scratch_space(
-    const Cuda&, const CudaSpace::size_type size);
-CudaSpace::size_type* cuda_internal_scratch_unified(
-    const Cuda&, const CudaSpace::size_type size);
+CudaSpace::size_type* cuda_internal_scratch_flags(const Cuda&,
+                                                  const std::size_t size);
+CudaSpace::size_type* cuda_internal_scratch_space(const Cuda&,
+                                                  const std::size_t size);
+CudaSpace::size_type* cuda_internal_scratch_unified(const Cuda&,
+                                                    const std::size_t size);
 
 }  // namespace Impl
 }  // namespace Kokkos
@@ -91,7 +91,7 @@ class CudaInternal {
   int m_cudaArch;
   unsigned m_multiProcCount;
   unsigned m_maxWarpCount;
-  unsigned m_maxBlock;
+  std::array<size_type, 3> m_maxBlock;
   unsigned m_maxSharedWords;
   uint32_t m_maxConcurrency;
   int m_shmemPerSM;
@@ -104,10 +104,10 @@ class CudaInternal {
   cudaDeviceProp m_deviceProp;
 
   // Scratch Spaces for Reductions
-  mutable size_type m_scratchSpaceCount;
-  mutable size_type m_scratchFlagsCount;
-  mutable size_type m_scratchUnifiedCount;
-  mutable size_type m_scratchFunctorSize;
+  mutable std::size_t m_scratchSpaceCount;
+  mutable std::size_t m_scratchFlagsCount;
+  mutable std::size_t m_scratchUnifiedCount;
+  mutable std::size_t m_scratchFunctorSize;
 
   size_type m_scratchUnifiedSupported;
   size_type m_streamCount;
@@ -133,6 +133,7 @@ class CudaInternal {
   //  here will break once there are multiple devices though
   static unsigned long* constantMemHostStaging;
   static cudaEvent_t constantMemReusable;
+  static std::mutex constantMemMutex;
 
   static CudaInternal& singleton();
 
@@ -163,7 +164,7 @@ class CudaInternal {
         m_cudaArch(-1),
         m_multiProcCount(0),
         m_maxWarpCount(0),
-        m_maxBlock(0),
+        m_maxBlock({0, 0, 0}),
         m_maxSharedWords(0),
         m_maxConcurrency(0),
         m_shmemPerSM(0),
@@ -195,10 +196,10 @@ class CudaInternal {
   }
 
   // Resizing of reduction related scratch spaces
-  size_type* scratch_space(const size_type size) const;
-  size_type* scratch_flags(const size_type size) const;
-  size_type* scratch_unified(const size_type size) const;
-  size_type* scratch_functor(const size_type size) const;
+  size_type* scratch_space(const std::size_t size) const;
+  size_type* scratch_flags(const std::size_t size) const;
+  size_type* scratch_unified(const std::size_t size) const;
+  size_type* scratch_functor(const std::size_t size) const;
   uint32_t impl_get_instance_id() const;
   // Resizing of team level 1 scratch
   std::pair<void*, int> resize_team_scratch_space(std::int64_t bytes,

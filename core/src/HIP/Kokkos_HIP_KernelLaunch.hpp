@@ -56,9 +56,14 @@
 
 // Must use global variable on the device with HIP-Clang
 #ifdef __HIP__
+#ifdef KOKKOS_ENABLE_HIP_RELOCATABLE_DEVICE_CODE
+__device__ __constant__ extern unsigned long
+    kokkos_impl_hip_constant_memory_buffer[];
+#else
 __device__ __constant__ unsigned long kokkos_impl_hip_constant_memory_buffer
     [Kokkos::Experimental::Impl::HIPTraits::ConstantMemoryUsage /
      sizeof(unsigned long)];
+#endif
 #endif
 
 namespace Kokkos {
@@ -430,8 +435,9 @@ struct HIPParallelLaunchKernelInvoker<DriverType, LaunchBounds,
                             dim3 const &block, int shmem,
                             HIPInternal const *hip_instance) {
     // Wait until the previous kernel that uses the constant buffer is done
+    std::lock_guard<std::mutex> lock(HIPInternal::constantMemMutex);
     KOKKOS_IMPL_HIP_SAFE_CALL(
-        hipEventSynchronize(hip_instance->constantMemReusable));
+        hipEventSynchronize(HIPInternal::constantMemReusable));
 
     // Copy functor (synchronously) to staging buffer in pinned host memory
     unsigned long *staging = hip_instance->constantMemHostStaging;
@@ -447,7 +453,7 @@ struct HIPParallelLaunchKernelInvoker<DriverType, LaunchBounds,
          get_kernel_func())<<<grid, block, shmem, hip_instance->m_stream>>>();
 
     // Record an event that says when the constant buffer can be reused
-    KOKKOS_IMPL_HIP_SAFE_CALL(hipEventRecord(hip_instance->constantMemReusable,
+    KOKKOS_IMPL_HIP_SAFE_CALL(hipEventRecord(HIPInternal::constantMemReusable,
                                              hip_instance->m_stream));
   }
 };

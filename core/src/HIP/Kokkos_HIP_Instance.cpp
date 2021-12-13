@@ -62,6 +62,12 @@
 #include <string>
 #include <vector>
 
+#ifdef KOKKOS_ENABLE_HIP_RELOCATABLE_DEVICE_CODE
+__device__ __constant__ unsigned long kokkos_impl_hip_constant_memory_buffer
+    [Kokkos::Experimental::Impl::HIPTraits::ConstantMemoryUsage /
+     sizeof(unsigned long)];
+#endif
+
 namespace Kokkos {
 namespace Experimental {
 namespace {
@@ -97,6 +103,7 @@ const HIPInternalDevices &HIPInternalDevices::singleton() {
 
 unsigned long *Impl::HIPInternal::constantMemHostStaging = nullptr;
 hipEvent_t Impl::HIPInternal::constantMemReusable        = nullptr;
+std::mutex Impl::HIPInternal::constantMemMutex;
 
 namespace Impl {
 
@@ -235,7 +242,9 @@ void HIPInternal::initialize(int hip_device_id, hipStream_t stream,
 
     //----------------------------------
     // Maximum number of blocks
-    m_maxBlock = hipProp.maxGridSize[0];
+    m_maxBlock[0] = hipProp.maxGridSize[0];
+    m_maxBlock[1] = hipProp.maxGridSize[1];
+    m_maxBlock[2] = hipProp.maxGridSize[2];
 
     // theoretically, we can get 40 WF's / CU, but only can sustain 32
     // see
@@ -323,7 +332,7 @@ using ScratchGrain =
 enum { sizeScratchGrain = sizeof(ScratchGrain) };
 
 Kokkos::Experimental::HIP::size_type *HIPInternal::scratch_space(
-    const Kokkos::Experimental::HIP::size_type size) {
+    const std::size_t size) {
   if (verify_is_initialized("scratch_space") &&
       m_scratchSpaceCount * sizeScratchGrain < size) {
     m_scratchSpaceCount = (size + sizeScratchGrain - 1) / sizeScratchGrain;
@@ -347,7 +356,7 @@ Kokkos::Experimental::HIP::size_type *HIPInternal::scratch_space(
 }
 
 Kokkos::Experimental::HIP::size_type *HIPInternal::scratch_flags(
-    const Kokkos::Experimental::HIP::size_type size) {
+    const std::size_t size) {
   if (verify_is_initialized("scratch_flags") &&
       m_scratchFlagsCount * sizeScratchGrain < size) {
     m_scratchFlagsCount = (size + sizeScratchGrain - 1) / sizeScratchGrain;
@@ -412,7 +421,7 @@ void HIPInternal::finalize() {
     m_hipArch                   = -1;
     m_multiProcCount            = 0;
     m_maxWarpCount              = 0;
-    m_maxBlock                  = 0;
+    m_maxBlock                  = {0, 0, 0};
     m_maxSharedWords            = 0;
     m_maxShmemPerBlock          = 0;
     m_scratchSpaceCount         = 0;
@@ -480,17 +489,18 @@ Kokkos::Experimental::HIP::size_type hip_internal_maximum_warp_count() {
   return HIPInternal::singleton().m_maxWarpCount;
 }
 
-Kokkos::Experimental::HIP::size_type hip_internal_maximum_grid_count() {
+std::array<Kokkos::Experimental::HIP::size_type, 3>
+hip_internal_maximum_grid_count() {
   return HIPInternal::singleton().m_maxBlock;
 }
 
 Kokkos::Experimental::HIP::size_type *hip_internal_scratch_space(
-    const HIP &instance, const HIP::size_type size) {
+    const HIP &instance, const std::size_t size) {
   return instance.impl_internal_space_instance()->scratch_space(size);
 }
 
 Kokkos::Experimental::HIP::size_type *hip_internal_scratch_flags(
-    const HIP &instance, const HIP::size_type size) {
+    const HIP &instance, const std::size_t size) {
   return instance.impl_internal_space_instance()->scratch_flags(size);
 }
 

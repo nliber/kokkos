@@ -72,13 +72,13 @@ struct HIPTraits {
 //----------------------------------------------------------------------------
 
 HIP::size_type hip_internal_maximum_warp_count();
-HIP::size_type hip_internal_maximum_grid_count();
+std::array<HIP::size_type, 3> hip_internal_maximum_grid_count();
 HIP::size_type hip_internal_multiprocessor_count();
 
 HIP::size_type *hip_internal_scratch_space(const HIP &instance,
-                                           const HIP::size_type size);
+                                           const std::size_t size);
 HIP::size_type *hip_internal_scratch_flags(const HIP &instance,
-                                           const HIP::size_type size);
+                                           const std::size_t size);
 
 //----------------------------------------------------------------------------
 
@@ -90,13 +90,13 @@ class HIPInternal {
  public:
   using size_type = ::Kokkos::Experimental::HIP::size_type;
 
-  int m_hipDev              = -1;
-  int m_hipArch             = -1;
-  unsigned m_multiProcCount = 0;
-  unsigned m_maxWarpCount   = 0;
-  unsigned m_maxBlock       = 0;
-  unsigned m_maxWavesPerCU  = 0;
-  unsigned m_maxSharedWords = 0;
+  int m_hipDev                        = -1;
+  int m_hipArch                       = -1;
+  unsigned m_multiProcCount           = 0;
+  unsigned m_maxWarpCount             = 0;
+  std::array<size_type, 3> m_maxBlock = {0, 0, 0};
+  unsigned m_maxWavesPerCU            = 0;
+  unsigned m_maxSharedWords           = 0;
   int m_regsPerSM;
   int m_shmemPerSM       = 0;
   int m_maxShmemPerBlock = 0;
@@ -117,8 +117,8 @@ class HIPInternal {
   mutable std::mutex m_mutexSharedMemory;
 
   // Scratch Spaces for Reductions
-  size_type m_scratchSpaceCount = 0;
-  size_type m_scratchFlagsCount = 0;
+  std::size_t m_scratchSpaceCount = 0;
+  std::size_t m_scratchFlagsCount = 0;
 
   size_type *m_scratchSpace           = nullptr;
   size_type *m_scratchFlags           = nullptr;
@@ -142,6 +142,7 @@ class HIPInternal {
   // here will break once there are multiple devices though
   static unsigned long *constantMemHostStaging;
   static hipEvent_t constantMemReusable;
+  static std::mutex constantMemMutex;
 
   static HIPInternal &singleton();
 
@@ -166,8 +167,8 @@ class HIPInternal {
   HIPInternal() = default;
 
   // Resizing of reduction related scratch spaces
-  size_type *scratch_space(const size_type size);
-  size_type *scratch_flags(const size_type size);
+  size_type *scratch_space(const std::size_t size);
+  size_type *scratch_flags(const std::size_t size);
   uint32_t impl_get_instance_id() const noexcept;
   // Resizing of team level 1 scratch
   void *resize_team_scratch_space(std::int64_t bytes,

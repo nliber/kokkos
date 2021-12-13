@@ -1732,7 +1732,7 @@ template <class TeamType, class DT, class... DP, class ST, class... SP>
 void KOKKOS_INLINE_FUNCTION
 local_deep_copy_contiguous(const TeamType& team, const View<DT, DP...>& dst,
                            const View<ST, SP...>& src) {
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, src.span()),
+  Kokkos::parallel_for(Kokkos::TeamVectorRange(team, src.span()),
                        [&](const int& i) { dst.data()[i] = src.data()[i]; });
 }
 //----------------------------------------------------------------------------
@@ -1758,7 +1758,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
   const size_t N = dst.extent(0);
 
   team.team_barrier();
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N),
+  Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N),
                        [&](const int& i) { dst(i) = src(i); });
   team.team_barrier();
 }
@@ -1782,7 +1782,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0      = i % dst.extent(0);
       int i1      = i / dst.extent(0);
       dst(i0, i1) = src(i0, i1);
@@ -1810,7 +1810,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0          = i % dst.extent(0);
       int itmp        = i / dst.extent(0);
       int i1          = itmp % dst.extent(1);
@@ -1841,7 +1841,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0              = i % dst.extent(0);
       int itmp            = i / dst.extent(0);
       int i1              = itmp % dst.extent(1);
@@ -1874,7 +1874,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0                  = i % dst.extent(0);
       int itmp                = i / dst.extent(0);
       int i1                  = itmp % dst.extent(1);
@@ -1909,7 +1909,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0                      = i % dst.extent(0);
       int itmp                    = i / dst.extent(0);
       int i1                      = itmp % dst.extent(1);
@@ -1947,7 +1947,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0                          = i % dst.extent(0);
       int itmp                        = i / dst.extent(0);
       int i1                          = itmp % dst.extent(1);
@@ -2121,7 +2121,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy_contiguous(
     typename std::enable_if<std::is_same<
         typename ViewTraits<DT, DP...>::specialize, void>::value>::type* =
         nullptr) {
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, dst.span()),
+  Kokkos::parallel_for(Kokkos::TeamVectorRange(team, dst.span()),
                        [&](const int& i) { dst.data()[i] = value; });
 }
 //----------------------------------------------------------------------------
@@ -2150,7 +2150,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
   const size_t N = dst.extent(0);
 
   team.team_barrier();
-  Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N),
+  Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N),
                        [&](const int& i) { dst(i) = value; });
   team.team_barrier();
 }
@@ -2173,7 +2173,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0      = i % dst.extent(0);
       int i1      = i / dst.extent(0);
       dst(i0, i1) = value;
@@ -2200,7 +2200,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0          = i % dst.extent(0);
       int itmp        = i / dst.extent(0);
       int i1          = itmp % dst.extent(1);
@@ -2230,7 +2230,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0              = i % dst.extent(0);
       int itmp            = i / dst.extent(0);
       int i1              = itmp % dst.extent(1);
@@ -2262,7 +2262,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0                  = i % dst.extent(0);
       int itmp                = i / dst.extent(0);
       int i1                  = itmp % dst.extent(1);
@@ -2296,7 +2296,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0                      = i % dst.extent(0);
       int itmp                    = i / dst.extent(0);
       int i1                      = itmp % dst.extent(1);
@@ -2333,7 +2333,7 @@ void KOKKOS_INLINE_FUNCTION local_deep_copy(
     team.team_barrier();
   } else {
     team.team_barrier();
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, N), [&](const int& i) {
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(team, N), [&](const int& i) {
       int i0                          = i % dst.extent(0);
       int itmp                        = i / dst.extent(0);
       int i1                          = itmp % dst.extent(1);
@@ -3062,8 +3062,7 @@ impl_realloc(Kokkos::View<T, P...>& v, const size_t n0, const size_t n1,
     v = view_type();  // Deallocate first, if the only view to allocation
     v = view_type(view_alloc(label, arg_prop...), n0, n1, n2, n3, n4, n5, n6,
                   n7);
-  } else if (!Kokkos::Impl::has_condition<
-                 void, Kokkos::Impl::is_without_initializing, I...>::value)
+  } else if (!Kokkos::Impl::has_type<Impl::WithoutInitializing_t, I...>::value)
     Kokkos::deep_copy(v, typename view_type::value_type{});
 }
 
@@ -3222,20 +3221,18 @@ struct MirrorType {
   using view_type = Kokkos::View<data_type, array_layout, Space>;
 };
 
-}  // namespace Impl
-
-template <class T, class... P>
-inline typename Kokkos::View<T, P...>::HostMirror create_mirror(
-    const Kokkos::View<T, P...>& src,
-    typename std::enable_if<
-        std::is_same<typename ViewTraits<T, P...>::specialize, void>::value &&
-        !std::is_same<typename Kokkos::ViewTraits<T, P...>::array_layout,
-                      Kokkos::LayoutStride>::value>::type* = nullptr) {
+template <class T, class... P, class... I>
+inline typename std::enable_if<
+    !std::is_same<typename Kokkos::ViewTraits<T, P...>::array_layout,
+                  Kokkos::LayoutStride>::value,
+    typename Kokkos::View<T, P...>::HostMirror>::type
+create_mirror(const Kokkos::View<T, P...>& src, const I&... arg_prop) {
   using src_type = View<T, P...>;
   using dst_type = typename src_type::HostMirror;
 
   return dst_type(
-      std::string(src.label()).append("_mirror"),
+      Kokkos::view_alloc(std::string(src.label()).append("_mirror"),
+                         arg_prop...),
       src.rank_dynamic > 0 ? src.extent(0) : KOKKOS_IMPL_CTOR_DEFAULT_ARG,
       src.rank_dynamic > 1 ? src.extent(1) : KOKKOS_IMPL_CTOR_DEFAULT_ARG,
       src.rank_dynamic > 2 ? src.extent(2) : KOKKOS_IMPL_CTOR_DEFAULT_ARG,
@@ -3246,13 +3243,12 @@ inline typename Kokkos::View<T, P...>::HostMirror create_mirror(
       src.rank_dynamic > 7 ? src.extent(7) : KOKKOS_IMPL_CTOR_DEFAULT_ARG);
 }
 
-template <class T, class... P>
-inline typename Kokkos::View<T, P...>::HostMirror create_mirror(
-    const Kokkos::View<T, P...>& src,
-    typename std::enable_if<
-        std::is_same<typename ViewTraits<T, P...>::specialize, void>::value &&
-        std::is_same<typename Kokkos::ViewTraits<T, P...>::array_layout,
-                     Kokkos::LayoutStride>::value>::type* = nullptr) {
+template <class T, class... P, class... I>
+inline typename std::enable_if<
+    std::is_same<typename Kokkos::ViewTraits<T, P...>::array_layout,
+                 Kokkos::LayoutStride>::value,
+    typename Kokkos::View<T, P...>::HostMirror>::type
+create_mirror(const Kokkos::View<T, P...>& src, const I&... arg_prop) {
   using src_type = View<T, P...>;
   using dst_type = typename src_type::HostMirror;
 
@@ -3276,65 +3272,121 @@ inline typename Kokkos::View<T, P...>::HostMirror create_mirror(
   layout.stride[6] = src.stride_6();
   layout.stride[7] = src.stride_7();
 
-  return dst_type(std::string(src.label()).append("_mirror"), layout);
+  return dst_type(Kokkos::view_alloc(std::string(src.label()).append("_mirror"),
+                                     arg_prop...),
+                  layout);
 }
 
 // Create a mirror in a new space (specialization for different space)
-template <class Space, class T, class... P>
+template <class Space, class T, class... P, class... I>
 typename Impl::MirrorType<Space, T, P...>::view_type create_mirror(
-    const Space&, const Kokkos::View<T, P...>& src,
-    typename std::enable_if<std::is_same<
-        typename ViewTraits<T, P...>::specialize, void>::value>::type* =
-        nullptr) {
-  return typename Impl::MirrorType<Space, T, P...>::view_type(src.label(),
-                                                              src.layout());
+    const Space&, const Kokkos::View<T, P...>& src, const I&... arg_prop) {
+  return typename Impl::MirrorType<Space, T, P...>::view_type(
+      Kokkos::view_alloc(src.label(), arg_prop...), src.layout());
 }
 
-template <class T, class... P>
-inline typename Kokkos::View<T, P...>::HostMirror create_mirror_view(
-    const Kokkos::View<T, P...>& src,
-    typename std::enable_if<
-        (std::is_same<
-             typename Kokkos::View<T, P...>::memory_space,
-             typename Kokkos::View<T, P...>::HostMirror::memory_space>::value &&
-         std::is_same<typename Kokkos::View<T, P...>::data_type,
-                      typename Kokkos::View<T, P...>::HostMirror::data_type>::
-             value)>::type* = nullptr) {
+template <class T, class... P, class... I>
+inline typename std::enable_if<
+    (std::is_same<
+         typename Kokkos::View<T, P...>::memory_space,
+         typename Kokkos::View<T, P...>::HostMirror::memory_space>::value &&
+     std::is_same<
+         typename Kokkos::View<T, P...>::data_type,
+         typename Kokkos::View<T, P...>::HostMirror::data_type>::value),
+    typename Kokkos::View<T, P...>::HostMirror>::type
+create_mirror_view(const Kokkos::View<T, P...>& src, const I&...) {
   return src;
 }
 
-template <class T, class... P>
-inline typename Kokkos::View<T, P...>::HostMirror create_mirror_view(
-    const Kokkos::View<T, P...>& src,
-    typename std::enable_if<!(
-        std::is_same<
-            typename Kokkos::View<T, P...>::memory_space,
-            typename Kokkos::View<T, P...>::HostMirror::memory_space>::value &&
-        std::is_same<typename Kokkos::View<T, P...>::data_type,
-                     typename Kokkos::View<T, P...>::HostMirror::data_type>::
-            value)>::type* = nullptr) {
-  return Kokkos::create_mirror(src);
+template <class T, class... P, class... I>
+inline typename std::enable_if<
+    !(std::is_same<
+          typename Kokkos::View<T, P...>::memory_space,
+          typename Kokkos::View<T, P...>::HostMirror::memory_space>::value &&
+      std::is_same<
+          typename Kokkos::View<T, P...>::data_type,
+          typename Kokkos::View<T, P...>::HostMirror::data_type>::value),
+    typename Kokkos::View<T, P...>::HostMirror>::type
+create_mirror_view(const Kokkos::View<T, P...>& src, const I&... arg_prop) {
+  return create_mirror(src, arg_prop...);
 }
 
 // Create a mirror view in a new space (specialization for same space)
-template <class Space, class T, class... P>
-typename Impl::MirrorViewType<Space, T, P...>::view_type create_mirror_view(
-    const Space&, const Kokkos::View<T, P...>& src,
-    typename std::enable_if<
-        Impl::MirrorViewType<Space, T, P...>::is_same_memspace>::type* =
-        nullptr) {
+template <class Space, class T, class... P, class... I>
+typename std::enable_if<
+    Impl::MirrorViewType<Space, T, P...>::is_same_memspace,
+    typename Impl::MirrorViewType<Space, T, P...>::view_type>::type
+create_mirror_view(const Space&, const Kokkos::View<T, P...>& src,
+                   const I&...) {
   return src;
 }
 
 // Create a mirror view in a new space (specialization for different space)
-template <class Space, class T, class... P>
+template <class Space, class T, class... P, class... I>
+typename std::enable_if<
+    !Impl::MirrorViewType<Space, T, P...>::is_same_memspace,
+    typename Impl::MirrorViewType<Space, T, P...>::view_type>::type
+create_mirror_view(const Space&, const Kokkos::View<T, P...>& src,
+                   const I&... arg_prop) {
+  return typename Impl::MirrorViewType<Space, T, P...>::view_type(
+      Kokkos::view_alloc(src.label(), arg_prop...), src.layout());
+}
+}  // namespace Impl
+
+template <class T, class... P>
+std::enable_if_t<
+    std::is_same<typename ViewTraits<T, P...>::specialize, void>::value,
+    typename Kokkos::View<T, P...>::HostMirror>
+create_mirror(Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror(v);
+}
+
+template <class T, class... P>
+typename Kokkos::View<T, P...>::HostMirror create_mirror(
+    Kokkos::Impl::WithoutInitializing_t wi, Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror(v, wi);
+}
+
+template <class Space, class T, class... P,
+          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
+typename Impl::MirrorType<Space, T, P...>::view_type create_mirror(
+    Space const& space, Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror(space, v);
+}
+
+template <class Space, class T, class... P,
+          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
+typename Impl::MirrorType<Space, T, P...>::view_type create_mirror(
+    Kokkos::Impl::WithoutInitializing_t wi, Space const& space,
+    Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror(space, v, wi);
+}
+
+template <class T, class... P>
+typename Kokkos::View<T, P...>::HostMirror create_mirror_view(
+    Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror_view(v);
+}
+
+template <class T, class... P>
+typename Kokkos::View<T, P...>::HostMirror create_mirror_view(
+    Kokkos::Impl::WithoutInitializing_t wi, Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror_view(v, wi);
+}
+
+template <class Space, class T, class... P,
+          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
 typename Impl::MirrorViewType<Space, T, P...>::view_type create_mirror_view(
-    const Space&, const Kokkos::View<T, P...>& src,
-    typename std::enable_if<
-        !Impl::MirrorViewType<Space, T, P...>::is_same_memspace>::type* =
-        nullptr) {
-  return typename Impl::MirrorViewType<Space, T, P...>::view_type(src.label(),
-                                                                  src.layout());
+    Space const& space, Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror_view(space, v);
+}
+
+template <class Space, class T, class... P,
+          typename Enable = std::enable_if_t<Kokkos::is_space<Space>::value>>
+typename Impl::MirrorViewType<Space, T, P...>::view_type create_mirror_view(
+    Kokkos::Impl::WithoutInitializing_t wi, Space const& space,
+    Kokkos::View<T, P...> const& v) {
+  return Impl::create_mirror_view(space, v, wi);
 }
 
 // Create a mirror view and deep_copy in a new space (specialization for same
@@ -3371,9 +3423,12 @@ create_mirror_view_and_copy(
   return mirror;
 }
 
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
 // Create a mirror view in a new space without initializing (specialization for
 // same space)
 template <class Space, class T, class... P>
+KOKKOS_DEPRECATED_WITH_COMMENT(
+    "Use the version taking WithoutInitializing as first argument")
 typename Impl::MirrorViewType<Space, T, P...>::view_type create_mirror_view(
     const Space&, const Kokkos::View<T, P...>& src,
     Kokkos::Impl::WithoutInitializing_t,
@@ -3386,6 +3441,8 @@ typename Impl::MirrorViewType<Space, T, P...>::view_type create_mirror_view(
 // Create a mirror view in a new space without initializing (specialization for
 // different space)
 template <class Space, class T, class... P>
+KOKKOS_DEPRECATED_WITH_COMMENT(
+    "Use the version taking WithoutInitializing as first argument")
 typename Impl::MirrorViewType<Space, T, P...>::view_type create_mirror_view(
     const Space&, const Kokkos::View<T, P...>& src,
     Kokkos::Impl::WithoutInitializing_t,
@@ -3395,6 +3452,7 @@ typename Impl::MirrorViewType<Space, T, P...>::view_type create_mirror_view(
   using Mirror = typename Impl::MirrorViewType<Space, T, P...>::view_type;
   return Mirror(view_alloc(WithoutInitializing, src.label()), src.layout());
 }
+#endif
 
 } /* namespace Kokkos */
 

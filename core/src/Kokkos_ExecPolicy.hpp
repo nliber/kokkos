@@ -51,6 +51,9 @@
 #include <impl/Kokkos_AnalyzePolicy.hpp>
 #include <Kokkos_Concepts.hpp>
 #include <typeinfo>
+#include <limits>
+#include <initializer_list>
+#include <array>
 
 //----------------------------------------------------------------------------
 
@@ -252,6 +255,195 @@ class RangePolicy : public Impl::PolicyTraits<Properties...> {
     KOKKOS_INLINE_FUNCTION
     WorkRange(const RangePolicy& range, const int part_rank,
               const int part_size)
+        : m_begin(0), m_end(0) {
+      if (part_size) {
+        // Split evenly among partitions, then round up to the granularity.
+        const member_type work_part =
+            ((((range.end() - range.begin()) + (part_size - 1)) / part_size) +
+             range.m_granularity_mask) &
+            ~member_type(range.m_granularity_mask);
+
+        m_begin = range.begin() + work_part * part_rank;
+        m_end   = m_begin + work_part;
+
+        if (range.end() < m_begin) m_begin = range.end();
+        if (range.end() < m_end) m_end = range.end();
+      }
+    }
+
+   private:
+    member_type m_begin;
+    member_type m_end;
+    WorkRange();
+    WorkRange& operator=(const WorkRange&);
+  };
+};
+
+template <class... Properties>
+class MyPolicy : Kokkos::Impl::PolicyTraits<Properties...> {
+ public:
+  using traits = Impl::PolicyTraits<Properties...>;
+
+ private:
+  typename traits::execution_space m_space;
+  typename traits::index_type m_begin;
+  typename traits::index_type m_end;
+  typename traits::index_type m_granularity;
+  typename traits::index_type m_granularity_mask;
+
+  template <class... OtherProperties>
+  friend class MyPolicy;
+
+ public:
+  //! Tag this class as an execution policy
+  using execution_policy = MyPolicy<Properties...>;
+  using member_type      = typename traits::index_type;
+  using index_type       = typename traits::index_type;
+
+  KOKKOS_INLINE_FUNCTION const typename traits::execution_space& space() const {
+    return m_space;
+  }
+  KOKKOS_INLINE_FUNCTION member_type begin() const { return m_begin; }
+  KOKKOS_INLINE_FUNCTION member_type end() const { return m_end; }
+
+  // TODO: find a better workaround for Clangs weird instantiation order
+  // This thing is here because of an instantiation error, where the MyPolicy
+  // is inserted into FunctorValue Traits, which tries decltype on the operator.
+  // It tries to do this even though the first argument of parallel for clearly
+  // doesn't match.
+  void operator()(const int&) const {}
+
+  template <class... OtherProperties>
+  MyPolicy(const MyPolicy<OtherProperties...>& p)
+      : traits(p),  // base class may contain data such as desired occupancy
+        m_space(p.m_space),
+        m_begin(p.m_begin),
+        m_end(p.m_end),
+        m_granularity(p.m_granularity),
+        m_granularity_mask(p.m_granularity_mask) {}
+
+  inline MyPolicy()
+      : m_space(),
+        m_begin(0),
+        m_end(0),
+        m_granularity(0),
+        m_granularity_mask(0) {}
+
+  /** \brief  Total range */
+  inline MyPolicy(const typename traits::execution_space& work_space,
+                  const member_type work_begin, const member_type work_end)
+      : m_space(work_space),
+        m_begin(work_begin < work_end ? work_begin : 0),
+        m_end(work_begin < work_end ? work_end : 0),
+        m_granularity(0),
+        m_granularity_mask(0) {
+    set_auto_chunk_size();
+  }
+
+  /** \brief  Total range */
+  inline MyPolicy(const member_type work_begin, const member_type work_end)
+      : MyPolicy(typename traits::execution_space(), work_begin, work_end) {
+    set_auto_chunk_size();
+  }
+
+  /** \brief  Total range */
+  template <class... Args>
+  inline MyPolicy(const typename traits::execution_space& work_space,
+                  const member_type work_begin, const member_type work_end,
+                  Args... args)
+      : m_space(work_space),
+        m_begin(work_begin < work_end ? work_begin : 0),
+        m_end(work_begin < work_end ? work_end : 0),
+        m_granularity(0),
+        m_granularity_mask(0) {
+    set_auto_chunk_size();
+    set(args...);
+  }
+
+  /** \brief  Total range */
+  template <class... Args>
+  inline MyPolicy(const member_type work_begin, const member_type work_end,
+                  Args... args)
+      : MyPolicy(typename traits::execution_space(), work_begin, work_end) {
+    set_auto_chunk_size();
+    set(args...);
+  }
+
+ private:
+  inline void set() {}
+
+ public:
+  template <class... Args>
+  inline void set(Args...) {
+    static_assert(
+        0 == sizeof...(Args),
+        "Kokkos::MyPolicy: unhandled constructor arguments encountered.");
+  }
+
+  template <class... Args>
+  inline void set(const ChunkSize& chunksize, Args... args) {
+    m_granularity      = chunksize.value;
+    m_granularity_mask = m_granularity - 1;
+    set(args...);
+  }
+
+ public:
+  /** \brief return chunk_size */
+  inline member_type chunk_size() const { return m_granularity; }
+
+  /** \brief set chunk_size to a discrete value*/
+  inline MyPolicy set_chunk_size(int chunk_size_) const {
+    MyPolicy p           = *this;
+    p.m_granularity      = chunk_size_;
+    p.m_granularity_mask = p.m_granularity - 1;
+    return p;
+  }
+
+ private:
+  /** \brief finalize chunk_size if it was set to AUTO*/
+  inline void set_auto_chunk_size() {
+    int64_t concurrency =
+        static_cast<int64_t>(traits::execution_space::concurrency());
+    if (concurrency == 0) concurrency = 1;
+
+    if (m_granularity > 0) {
+      if (!Impl::is_integral_power_of_two(m_granularity))
+        Kokkos::abort("MyPolicy blocking granularity must be power of two");
+    }
+
+    int64_t new_chunk_size = 1;
+    while (new_chunk_size * 100 * concurrency <
+           static_cast<int64_t>(m_end - m_begin))
+      new_chunk_size *= 2;
+    if (new_chunk_size < 128) {
+      new_chunk_size = 1;
+      while ((new_chunk_size * 40 * concurrency <
+              static_cast<int64_t>(m_end - m_begin)) &&
+             (new_chunk_size < 128))
+        new_chunk_size *= 2;
+    }
+    m_granularity      = new_chunk_size;
+    m_granularity_mask = m_granularity - 1;
+  }
+
+ public:
+  /** \brief  Subrange for a partition's rank and size.
+   *
+   *  Typically used to partition a range over a group of threads.
+   */
+  struct WorkRange {
+    using work_tag    = typename MyPolicy<Properties...>::work_tag;
+    using member_type = typename MyPolicy<Properties...>::member_type;
+
+    KOKKOS_INLINE_FUNCTION member_type begin() const { return m_begin; }
+    KOKKOS_INLINE_FUNCTION member_type end() const { return m_end; }
+
+    /** \brief  Subrange for a partition's rank and size.
+     *
+     *  Typically used to partition a range over a group of threads.
+     */
+    KOKKOS_INLINE_FUNCTION
+    WorkRange(const MyPolicy& range, const int part_rank, const int part_size)
         : m_begin(0), m_end(0) {
       if (part_size) {
         // Split evenly among partitions, then round up to the granularity.
@@ -771,6 +963,107 @@ struct ThreadVectorRangeBoundariesStruct {
   constexpr ThreadVectorRangeBoundariesStruct(
       const index_type& arg_begin, const index_type& arg_end) noexcept
       : start(static_cast<index_type>(arg_begin)), end(arg_end) {}
+};
+
+template <Kokkos::Iterate Direction, size_t Rank, typename iType,
+          typename TeamMemberType>
+struct MDTeamThreadRangeBoundariesStruct {
+  static_assert(2 <= Rank, "Rank must be at least 2");
+  static_assert(Rank <= 8, "Rank must be at most 8");
+  static_assert(Direction == Kokkos::Iterate::Left ||
+                    Direction == Kokkos::Iterate::Right,
+                "Direction must be Left or Right");
+
+  static constexpr Kokkos::Iterate direction = Direction;
+  static constexpr size_t rank               = Rank;
+  using index_type                           = iType;
+  using team_member_type                     = TeamMemberType;
+
+  // Ns must all be convertible to iType
+  // sizeof(Ns) == Rank
+  template <typename... Ns>
+  KOKKOS_INLINE_FUNCTION constexpr explicit MDTeamThreadRangeBoundariesStruct(
+      TeamMemberType const& member, Ns&&... ns)
+      : thread(member), threadDims{static_cast<iType>(ns)...} {
+    static_assert(sizeof...(ns) == Rank, "Number of ns must equal Rank");
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  MDTeamThreadRangeBoundariesStruct(TeamMemberType const& member,
+                                    const iType (&array)[Rank])
+      : thread(member) {
+    std::copy(&array[0], &array[Rank], &threadDims[0]);
+  }
+
+  TeamMemberType const& thread;
+  iType threadDims[Rank];
+};
+
+template <typename T>
+struct IsMDTeamThreadRangeBoundariesStruct : std::false_type {};
+
+template <Kokkos::Iterate Direction, size_t Rank, typename iType,
+          typename TeamMemberType>
+struct IsMDTeamThreadRangeBoundariesStruct<
+    MDTeamThreadRangeBoundariesStruct<Direction, Rank, iType, TeamMemberType>>
+    : std::true_type {};
+
+template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection,
+          size_t Rank, typename iType, typename TeamMemberType>
+struct MDThreadVectorRangeBoundariesStruct {
+  static constexpr Kokkos::Iterate outer_direction = OuterDirection;
+  static constexpr Kokkos::Iterate inner_direction = InnerDirection;
+  static constexpr size_t rank                     = Rank;
+  using index_type                                 = iType;
+  using team_member_type                           = TeamMemberType;
+
+  static_assert(2 <= Rank, "Rank must be at least 2");
+  static_assert(Rank <= 8, "Rank must be at most 8");
+  static_assert(OuterDirection == Kokkos::Iterate::Left ||
+                    OuterDirection == Kokkos::Iterate::Right,
+                "OuterDirection must be Left or Right");
+  static_assert(InnerDirection == Kokkos::Iterate::Left ||
+                    InnerDirection == Kokkos::Iterate::Right,
+                "InnerDirection must be Left or Right");
+
+  template <typename... Ns>
+  KOKKOS_INLINE_FUNCTION constexpr explicit MDThreadVectorRangeBoundariesStruct(
+      TeamMemberType const& tm, Ns&&... ns)
+      : team_member(tm), taskDims{static_cast<iType>(ns)...} {
+    static_assert(sizeof...(ns) == Rank, "Number of ns must equal Rank");
+  }
+
+  TeamMemberType const& team_member;
+  iType const taskDims[Rank];
+};
+
+template <Kokkos::Iterate OuterDirection, Kokkos::Iterate InnerDirection,
+          size_t Rank, typename iType, typename TeamMemberType>
+struct MDTeamVectorRangeBoundariesStruct {
+  static constexpr Kokkos::Iterate outer_direction = OuterDirection;
+  static constexpr Kokkos::Iterate inner_direction = InnerDirection;
+  static constexpr size_t rank                     = Rank;
+  using index_type                                 = iType;
+  using team_member_type                           = TeamMemberType;
+
+  static_assert(2 <= Rank, "Rank must be at least 2");
+  static_assert(Rank <= 8, "Rank must be at most 8");
+  static_assert(OuterDirection == Kokkos::Iterate::Left ||
+                    OuterDirection == Kokkos::Iterate::Right,
+                "OuterDirection must be Left or Right");
+  static_assert(InnerDirection == Kokkos::Iterate::Left ||
+                    InnerDirection == Kokkos::Iterate::Right,
+                "InnerDirection must be Left or Right");
+
+  template <typename... Ns>
+  KOKKOS_INLINE_FUNCTION constexpr explicit MDTeamVectorRangeBoundariesStruct(
+      TeamMemberType const& tm, Ns&&... ns)
+      : team_member(tm), taskDims{static_cast<iType>(ns)...} {
+    static_assert(sizeof...(ns) == Rank, "Number of ns must equal Rank");
+  }
+
+  TeamMemberType const& team_member;
+  iType const taskDims[Rank];
 };
 
 template <class TeamMemberType>

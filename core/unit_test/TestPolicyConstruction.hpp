@@ -50,6 +50,25 @@
 #include <type_traits>
 
 namespace Test {
+struct SomeExecutionSpace {
+  using execution_space = SomeExecutionSpace;
+  using size_type       = size_t;
+  static constexpr int concurrency() { return 0; }
+};
+static_assert(Kokkos::is_execution_space_v<SomeExecutionSpace>);
+
+}  // namespace Test
+
+namespace Test {
+
+struct ImplicitlyConvertibleToDefaultExecutionSpace {
+  operator Kokkos::DefaultExecutionSpace() const {
+    return Kokkos::DefaultExecutionSpace();
+  }
+};
+static_assert(!Kokkos::is_execution_space_v<
+              ImplicitlyConvertibleToDefaultExecutionSpace>);
+
 struct SomeTag {};
 
 template <class ExecutionSpace>
@@ -57,6 +76,8 @@ class TestRangePolicyConstruction {
  public:
   TestRangePolicyConstruction() {
     test_compile_time_parameters();
+    test_compile_time_implicit_deduction_guides();
+    test_compile_time_deduction_guides();
     test_runtime_parameters();
   }
 
@@ -286,6 +307,134 @@ class TestRangePolicyConstruction {
       ASSERT_TRUE((std::is_same<work_tag, SomeTag>::value));
     }
   }
+
+  void test_compile_time_implicit_deduction_guides() {
+    // icpc generates an ICE on implicit deduction guides for copy/move
+    //
+    // internal error: assertion failed: find_placeholder_arg_for_pack: symbol
+    // not found (scope_stk.c, line 11248 in find_placeholder_arg_for_pack)
+#if not defined(__INTEL_COMPILER)
+    // Copy
+    Kokkos::RangePolicy<SomeExecutionSpace> rptc;
+    Kokkos::RangePolicy rpdc(rptc);
+    ASSERT_TRUE((std::is_same_v<decltype(rptc), decltype(rpdc)>));
+
+    // Move
+    Kokkos::RangePolicy<SomeExecutionSpace> rptm;
+    Kokkos::RangePolicy rpdm(std::move(rptm));
+    ASSERT_TRUE((std::is_same_v<decltype(rptm), decltype(rpdm)>));
+#endif  // not defined(__INTEL_COMPILER)
+  }
+
+  void test_compile_time_deduction_guides() {
+    Kokkos::DefaultExecutionSpace des{};
+    ImplicitlyConvertibleToDefaultExecutionSpace notEs{};
+    SomeExecutionSpace ses{};
+    ExecutionSpace es{};
+
+    using RangePolicyExecSpace = std::conditional_t<
+        std::is_same_v<ExecutionSpace, Kokkos::DefaultExecutionSpace>,
+        Kokkos::RangePolicy<>, Kokkos::RangePolicy<ExecutionSpace>>;
+
+    int64_t i64{};
+    int32_t i32{};
+    Kokkos::ChunkSize cs{0};
+
+    // RangePolicy()
+
+    Kokkos::RangePolicy<> pt0;
+    Kokkos::RangePolicy pd0;
+    ASSERT_TRUE((std::is_same_v<decltype(pd0), decltype(pt0)>));
+
+    // RangePolicy(execution_space, index_type, index_type)
+
+    Kokkos::RangePolicy<> pt1(des, i64, i64);
+    Kokkos::RangePolicy pd1(des, i64, i64);
+    ASSERT_TRUE((std::is_same_v<decltype(pd1), decltype(pt1)>));
+
+    Kokkos::RangePolicy<> pt2(notEs, i64, i64);
+    Kokkos::RangePolicy pd2(notEs, i64, i64);
+    ASSERT_TRUE((std::is_same_v<decltype(pd2), decltype(pt2)>));
+
+    Kokkos::RangePolicy<SomeExecutionSpace> pt3(ses, i64, i64);
+    Kokkos::RangePolicy pd3(ses, i64, i64);
+    ASSERT_TRUE((std::is_same_v<decltype(pd3), decltype(pt3)>));
+
+    RangePolicyExecSpace pt4(es, i64, i64);
+    Kokkos::RangePolicy pd4(es, i64, i64);
+    ASSERT_TRUE((std::is_same_v<decltype(pd4), decltype(pt4)>));
+
+    Kokkos::RangePolicy<> pt5(des, i32, i32);
+    Kokkos::RangePolicy pd5(des, i32, i32);
+    ASSERT_TRUE((std::is_same_v<decltype(pd5), decltype(pt5)>));
+
+    Kokkos::RangePolicy<> pt6(notEs, i32, i32);
+    Kokkos::RangePolicy pd6(notEs, i32, i32);
+    ASSERT_TRUE((std::is_same_v<decltype(pd6), decltype(pt6)>));
+
+    Kokkos::RangePolicy<SomeExecutionSpace> pt7(ses, i32, i32);
+    Kokkos::RangePolicy pd7(ses, i32, i32);
+    ASSERT_TRUE((std::is_same_v<decltype(pd7), decltype(pt7)>));
+
+    RangePolicyExecSpace pt8(es, i32, i32);
+    Kokkos::RangePolicy pd8(es, i32, i32);
+    ASSERT_TRUE((std::is_same_v<decltype(pd8), decltype(pt8)>));
+
+    // RangePolicy(index_type, index_type)
+
+    Kokkos::RangePolicy<> pt9(i64, i64);
+    Kokkos::RangePolicy pd9(i64, i64);
+    ASSERT_TRUE((std::is_same_v<decltype(pd9), decltype(pt9)>));
+
+    Kokkos::RangePolicy<> pt10(i32, i32);
+    Kokkos::RangePolicy pd10(i32, i32);
+    ASSERT_TRUE((std::is_same_v<decltype(pd10), decltype(pt10)>));
+
+    // RangePolicy(execution_space, index_type, index_type, Args...)
+
+    Kokkos::RangePolicy<> pt11(des, i64, i64, cs);
+    Kokkos::RangePolicy pd11(des, i64, i64, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd11), decltype(pt11)>));
+
+    Kokkos::RangePolicy<> pt12(notEs, i64, i64, cs);
+    Kokkos::RangePolicy pd12(notEs, i64, i64, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd12), decltype(pt12)>));
+
+    Kokkos::RangePolicy<SomeExecutionSpace> pt13(ses, i64, i64, cs);
+    Kokkos::RangePolicy pd13(ses, i64, i64, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd13), decltype(pt13)>));
+
+    RangePolicyExecSpace pt14(es, i64, i64, cs);
+    Kokkos::RangePolicy pd14(es, i64, i64, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd14), decltype(pt14)>));
+
+    Kokkos::RangePolicy<> pt15(des, i32, i32, cs);
+    Kokkos::RangePolicy pd15(des, i32, i32, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd15), decltype(pt15)>));
+
+    Kokkos::RangePolicy<> pt16(notEs, i32, i32, cs);
+    Kokkos::RangePolicy pd16(notEs, i32, i32, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd16), decltype(pt16)>));
+
+    Kokkos::RangePolicy<SomeExecutionSpace> pt17(ses, i32, i32, cs);
+    Kokkos::RangePolicy pd17(ses, i32, i32, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd17), decltype(pt17)>));
+
+    RangePolicyExecSpace pt18(es, i32, i32, cs);
+    Kokkos::RangePolicy pd18(es, i32, i32, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd18), decltype(pt18)>));
+
+    // RangePolicy(index_type, index_type, Args...)
+
+    Kokkos::RangePolicy<> pt19(i64, i64, cs);
+    Kokkos::RangePolicy pd19(i64, i64, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pt19), decltype(pd19)>));
+
+    Kokkos::RangePolicy<> pt20(i32, i32, cs);
+    Kokkos::RangePolicy pd20(i32, i32, cs);
+    ASSERT_TRUE((std::is_same_v<decltype(pd20), decltype(pt20)>));
+  }
+
   void test_runtime_parameters() {
     using policy_t     = Kokkos::RangePolicy<>;
     using index_t      = policy_t::index_type;

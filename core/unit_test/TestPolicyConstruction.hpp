@@ -57,10 +57,6 @@ struct SomeExecutionSpace {
 };
 static_assert(Kokkos::is_execution_space_v<SomeExecutionSpace>);
 
-}  // namespace Test
-
-namespace Test {
-
 struct ImplicitlyConvertibleToDefaultExecutionSpace {
   operator Kokkos::DefaultExecutionSpace() const {
     return Kokkos::DefaultExecutionSpace();

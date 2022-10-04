@@ -50,6 +50,18 @@
 #include <type_traits>
 
 namespace Test {
+template <typename...>
+struct Variadic {
+  template <typname... Args>
+  Variadic(Args&&...) {}
+};
+
+Variadic(int, double)->Variadic<double, int>;
+
+TEST(TEST_CATEGORY, variadic) {
+    Variadic v(1, 2.);
+}
+
 struct SomeExecutionSpace {
   using execution_space = SomeExecutionSpace;
   using size_type       = size_t;

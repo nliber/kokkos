@@ -45,8 +45,7 @@ class
     alignas(2 * sizeof(RealType))
 #endif
         complex {
-  static_assert(std::is_floating_point_v<RealType> &&
-                    std::is_same_v<RealType, std::remove_cv_t<RealType>>,
+  static_assert(Impl::is_noncv_floating_point_v<RealType>,
                 "Kokkos::complex can only be instantiated for a cv-unqualified "
                 "floating point type");
 
@@ -703,7 +702,11 @@ operator*(const RealType1& x, const complex<RealType2>& y) noexcept {
 ///
 /// This function exists because the compiler doesn't know that
 /// RealType and complex<RealType> commute with respect to operator*.
-template <class RealType1, class RealType2>
+template <
+    class RealType1, class RealType2,
+    class = std::enable_if_t<Impl::is_noncv_floating_point_v<RealType1> &&
+                             Impl::is_noncv_floating_point_v<
+                                 std::common_type_t<RealType1, RealType2>>>>
 KOKKOS_INLINE_FUNCTION complex<std::common_type_t<RealType1, RealType2>>
 operator*(const complex<RealType1>& y, const RealType2& x) noexcept {
   return complex<std::common_type_t<RealType1, RealType2>>(x * y.real(),
